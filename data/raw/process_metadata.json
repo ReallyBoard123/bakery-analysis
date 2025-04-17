@@ -1,0 +1,1800 @@
+{
+  "available_measurement_files": [
+    "date_data",
+    "dyn_beacon_usage_closeness_data",
+    "fork_height_lvl_data",
+    "hour_of_day_data",
+    "pause_data",
+    "region_label_ts_data",
+    "region_ts_data",
+    "shift_data",
+    "step_counter_data",
+    "unified_har_data",
+    "walking_speed_data"
+  ],
+  "description": null,
+  "human_activities": [
+    {
+      "category": {
+        "id": 1,
+        "translation_key": "HUMAN_ACT_CATEGORY.BASE"
+      },
+      "category_id": 1,
+      "chart_color": "#CECECE",
+      "id": 1,
+      "translation_key": "HUMAN_ACT.OTHER"
+    },
+    {
+      "category": {
+        "id": 1,
+        "translation_key": "HUMAN_ACT_CATEGORY.BASE"
+      },
+      "category_id": 1,
+      "chart_color": "#2D5F91",
+      "id": 2,
+      "translation_key": "HUMAN_ACT.WALK"
+    },
+    {
+      "category": {
+        "id": 1,
+        "translation_key": "HUMAN_ACT_CATEGORY.BASE"
+      },
+      "category_id": 1,
+      "chart_color": "#FFAA00",
+      "id": 3,
+      "translation_key": "HUMAN_ACT.STAND"
+    },
+    {
+      "category": {
+        "id": 1,
+        "translation_key": "HUMAN_ACT_CATEGORY.BASE"
+      },
+      "category_id": 1,
+      "chart_color": "#96BEE6",
+      "id": 4,
+      "translation_key": "HUMAN_ACT.HANDLE"
+    },
+    {
+      "category": {
+        "id": 2,
+        "translation_key": "HUMAN_ACT_CATEGORY.HANDLING_HEIGHTS"
+      },
+      "category_id": 2,
+      "chart_color": "#CECECE",
+      "id": 6,
+      "translation_key": "HUMAN_ACT.NO_HANDLE"
+    },
+    {
+      "category": {
+        "id": 2,
+        "translation_key": "HUMAN_ACT_CATEGORY.HANDLING_HEIGHTS"
+      },
+      "category_id": 2,
+      "chart_color": "#FFAA00",
+      "id": 7,
+      "translation_key": "HUMAN_ACT.HANDLE_UP"
+    },
+    {
+      "category": {
+        "id": 2,
+        "translation_key": "HUMAN_ACT_CATEGORY.HANDLING_HEIGHTS"
+      },
+      "category_id": 2,
+      "chart_color": "#48B7B4",
+      "id": 8,
+      "translation_key": "HUMAN_ACT.HANDLE_CENTER"
+    },
+    {
+      "category": {
+        "id": 2,
+        "translation_key": "HUMAN_ACT_CATEGORY.HANDLING_HEIGHTS"
+      },
+      "category_id": 2,
+      "chart_color": "#E8655F",
+      "id": 9,
+      "translation_key": "HUMAN_ACT.HANDLE_DOWN"
+    }
+  ],
+  "layout": {
+    "address": "test",
+    "beacons": [
+      {
+        "comment": "kleidung",
+        "id": 3,
+        "position_x": 0.239638,
+        "position_y": 0.187178,
+        "region_uuid": "0595bf59-10df-4882-a55b-5accd77b04d3",
+        "uuid": "056da611-83b7-4b3f-8757-f35ab36638db"
+      },
+      {
+        "comment": "2_stickenofen",
+        "id": 38,
+        "position_x": 0.487462,
+        "position_y": 0.374037,
+        "region_uuid": "e8afb952-7e3c-417f-80e5-722052b81961",
+        "uuid": "08e75ce6-8e93-4aa7-b9a3-7cc3ecda9b0f"
+      },
+      {
+        "comment": "staircase",
+        "id": 48,
+        "position_x": 0.25921,
+        "position_y": 0.220235,
+        "region_uuid": "0351959c-fc2e-4759-b6d7-14ee2dd4f056",
+        "uuid": "08ea85ad-7c7f-4efe-9ab5-b1af848c177a"
+      },
+      {
+        "comment": "4_Br\u00f6tchenstation",
+        "id": 24,
+        "position_x": 0.306707,
+        "position_y": 0.304287,
+        "region_uuid": "f058242b-3b39-4619-8079-eae982fc9648",
+        "uuid": "0a22cc3b-5b71-491a-9a88-99eae1a40537"
+      },
+      {
+        "comment": "1_Br\u00f6tchenstation",
+        "id": 21,
+        "position_x": 0.374304,
+        "position_y": 0.450655,
+        "region_uuid": "622787df-1735-4540-b46c-c53050012dae",
+        "uuid": "0a6f6d91-91f8-4a88-9f4a-bd38823836e6"
+      },
+      {
+        "comment": "2_Br\u00f6tchenstation",
+        "id": 22,
+        "position_x": 0.377169,
+        "position_y": 0.353997,
+        "region_uuid": "179748fa-070d-4c45-bcfa-e4904f946a69",
+        "uuid": "0af10a36-0166-4ac3-ac61-ad6852bf43b0"
+      },
+      {
+        "comment": "2_packing_area",
+        "id": 55,
+        "position_x": 0.0456996,
+        "position_y": 0.430116,
+        "region_uuid": "24972287-b835-4fe7-8bcd-b9923d0833c3",
+        "uuid": "0e88f6cc-a7a3-4618-8c86-3a36fd3e0e23"
+      },
+      {
+        "comment": "garrage_1",
+        "id": 30,
+        "position_x": 0.747045,
+        "position_y": 0.253607,
+        "region_uuid": "92994ccd-788a-49e6-98ae-5bcdac324928",
+        "uuid": "0fd6158c-a275-4b99-b6a6-49d8b4245827"
+      },
+      {
+        "comment": "g\u00e4rraum_handle",
+        "id": 40,
+        "position_x": 0.487192,
+        "position_y": 0.145288,
+        "region_uuid": "b84ba625-c9bc-46b2-ac6f-9cae97431044",
+        "uuid": "1313996e-6f5b-4cf0-a748-ed28e45a7756"
+      },
+      {
+        "comment": "outdoor_loading",
+        "id": 5007,
+        "position_x": 0.801435,
+        "position_y": 0.558643,
+        "region_uuid": "145254f2-666b-4fa9-a4ed-015d6fd58587",
+        "uuid": "1593e31a-a003-412c-aaac-ade540ad74be"
+      },
+      {
+        "comment": "brotstation1_machine",
+        "id": 36,
+        "position_x": 0.397486,
+        "position_y": 0.465583,
+        "region_uuid": "622787df-1735-4540-b46c-c53050012dae",
+        "uuid": "1bc21474-6493-4d98-b3c5-03463ce79321"
+      },
+      {
+        "comment": "staircase",
+        "id": 6,
+        "position_x": 0.236023,
+        "position_y": 0.206974,
+        "region_uuid": "222571a3-487f-470f-bf0f-e735658588d3",
+        "uuid": "1f42323d-fdfe-428a-9ef8-d3bfb593bf75"
+      },
+      {
+        "comment": "klein_k\u00fchlschrank",
+        "id": 26,
+        "position_x": 0.306371,
+        "position_y": 0.230137,
+        "region_uuid": "1f42cae2-dcfe-468d-8712-e4e24f27e44c",
+        "uuid": "2024ffa9-7bb8-46ff-a49d-59222d3ec437"
+      },
+      {
+        "comment": "Mehlmaschine",
+        "id": 20,
+        "position_x": 0.309742,
+        "position_y": 0.41011,
+        "region_uuid": "c1713e75-feb9-4e85-8c94-72a287e3b44b",
+        "uuid": "28cf03c3-fafa-4005-b718-657f30b81377"
+      },
+      {
+        "comment": "konditorei_deco_2",
+        "id": 43,
+        "position_x": 0.135195,
+        "position_y": 0.499533,
+        "region_uuid": "f3b35038-212d-444a-95ad-5d2724add74d",
+        "uuid": "2c46bd3e-010a-4a08-86ba-4c090381672b"
+      },
+      {
+        "comment": "K\u00fcche",
+        "id": 16,
+        "position_x": 0.0908057,
+        "position_y": 0.716039,
+        "region_uuid": "806b6171-ba18-4a82-b49f-230afdb2b995",
+        "uuid": "2fc774e9-84ac-434f-95a1-594ef1e80eb5"
+      },
+      {
+        "comment": "fettbacken",
+        "id": 5,
+        "position_x": 0.0962653,
+        "position_y": 0.22611,
+        "region_uuid": "d8b0fa58-1194-4d8f-aa3e-714df53cc301",
+        "uuid": "3053d7c7-38d3-41a2-8756-7b7ea975cc74"
+      },
+      {
+        "comment": "1_corridor_a",
+        "id": 52,
+        "position_x": 0.219513,
+        "position_y": 0.61422,
+        "region_uuid": "d8f394a6-e073-47bc-8c24-95276df622f3",
+        "uuid": "4072830e-ca98-4351-b55a-732f8bc056eb"
+      },
+      {
+        "comment": "machine_looking_kisten",
+        "id": 58,
+        "position_x": 0.448812,
+        "position_y": 0.555877,
+        "region_uuid": "99d0bd87-bc4b-42be-8949-ef715e729c75",
+        "uuid": "4e4b4723-186e-471b-a99c-72b1824deb67"
+      },
+      {
+        "comment": "2_kitchen",
+        "id": 57,
+        "position_x": 0.152596,
+        "position_y": 0.729925,
+        "region_uuid": "806b6171-ba18-4a82-b49f-230afdb2b995",
+        "uuid": "51e7f0c1-100f-4d7f-9018-ad1a267f901f"
+      },
+      {
+        "comment": "brotwagon_haltebereich",
+        "id": 41,
+        "position_x": 0.423628,
+        "position_y": 0.145854,
+        "region_uuid": "bdff3387-579b-4e97-8714-47fdebf78a85",
+        "uuid": "56c6bd32-32d7-42ed-8e32-2a9caa9d5d82"
+      },
+      {
+        "comment": "2_lager",
+        "id": 44,
+        "position_x": 0.299999,
+        "position_y": 0.838271,
+        "region_uuid": "160d50ba-b505-4dff-805d-7c51ee7a0300",
+        "uuid": "59ac9084-56bb-4659-ac4b-25287279cc95"
+      },
+      {
+        "comment": "etagenofen",
+        "id": 39,
+        "position_x": 0.488377,
+        "position_y": 0.264359,
+        "region_uuid": "1c978883-9683-46c6-8e09-57a9ca7eb1d4",
+        "uuid": "5d59c46b-8aeb-43d9-b4c4-2c80fb653685"
+      },
+      {
+        "comment": "outdoor_eingang",
+        "id": 5001,
+        "position_x": 0.400331,
+        "position_y": 0.11444,
+        "region_uuid": "8a11c86e-6dab-4a01-958e-031ac0b31aef",
+        "uuid": "6204b2c8-8dcf-47d5-bf80-33c354823a88"
+      },
+      {
+        "comment": "saurteigraum_handle",
+        "id": 42,
+        "position_x": 0.354252,
+        "position_y": 0.19883,
+        "region_uuid": "22af8a49-a9d9-466b-a30c-0991c6cd67b8",
+        "uuid": "6677f699-aaa3-4ea1-8d43-e48ba89d39cd"
+      },
+      {
+        "comment": "1_flur_aufzug",
+        "id": 7,
+        "position_x": 0.186527,
+        "position_y": 0.228031,
+        "region_uuid": "d8c8d4bd-e755-400a-a251-3a2dbedd697c",
+        "uuid": "678f9c23-4297-4e2d-a326-a8563c77baca"
+      },
+      {
+        "comment": "1_stickenofen",
+        "id": 37,
+        "position_x": 0.487251,
+        "position_y": 0.419507,
+        "region_uuid": "7f2c11ac-a7ad-4e9f-9a04-48bf6969a141",
+        "uuid": "6bd850d7-d8d4-423f-ac86-9ba185ac32a2"
+      },
+      {
+        "comment": "1_corridor_b",
+        "id": 53,
+        "position_x": 0.270048,
+        "position_y": 0.605169,
+        "region_uuid": "d8f394a6-e073-47bc-8c24-95276df622f3",
+        "uuid": "6d6fc59f-8204-4607-95ad-9f664c894f44"
+      },
+      {
+        "comment": "prod_plan",
+        "id": 51,
+        "position_x": 0.174505,
+        "position_y": 0.616483,
+        "region_uuid": "2141d676-f552-4892-86c3-33aa0fbd48e9",
+        "uuid": "7064f291-f84f-4984-a0ef-dae51b4e0f20"
+      },
+      {
+        "comment": "3_Konditorei",
+        "id": 10,
+        "position_x": 0.256521,
+        "position_y": 0.292448,
+        "region_uuid": "e977ec47-b078-4d76-b101-e9e8c26111ef",
+        "uuid": "713e00a0-f5cf-4415-b751-71c3fd23d406"
+      },
+      {
+        "comment": "3_packing_area",
+        "id": 56,
+        "position_x": 0.0448533,
+        "position_y": 0.730821,
+        "region_uuid": "24972287-b835-4fe7-8bcd-b9923d0833c3",
+        "uuid": "7674c44c-e34c-482b-8bc9-e56a25ae1307"
+      },
+      {
+        "comment": "leere_brotwagon",
+        "id": 32,
+        "position_x": 0.372474,
+        "position_y": 0.606703,
+        "region_uuid": "068c17cc-405a-4efc-9e57-05c2bbfde191",
+        "uuid": "7d9ac81b-de6f-4197-9ece-26ea5c0d9e4f"
+      },
+      {
+        "comment": "Konditorei_deco_1",
+        "id": 13,
+        "position_x": 0.103247,
+        "position_y": 0.433754,
+        "region_uuid": "f3b35038-212d-444a-95ad-5d2724add74d",
+        "uuid": "7ee514f0-6fe7-4b60-8e2d-af59de069387"
+      },
+      {
+        "comment": "loading_area",
+        "id": 28,
+        "position_x": 0.610555,
+        "position_y": 0.573063,
+        "region_uuid": "c35d2748-e54d-45c6-b939-2502f8c1a756",
+        "uuid": "819be5b8-146f-4f9a-8607-3333fd8fbb35"
+      },
+      {
+        "comment": "flur_eingang",
+        "id": 2,
+        "position_x": 0.253479,
+        "position_y": 0.153503,
+        "region_uuid": "0595bf59-10df-4882-a55b-5accd77b04d3",
+        "uuid": "85c95006-f745-4244-9111-c6f37139d0ab"
+      },
+      {
+        "comment": "Rollenhandtuch",
+        "id": 27,
+        "position_x": 0.364605,
+        "position_y": 0.142742,
+        "region_uuid": "5412f0f3-808b-4929-bf37-63019f0ecf66",
+        "uuid": "8724be3f-eb51-4609-ae34-6a5000fbce4a"
+      },
+      {
+        "comment": "outdoor_m\u00fchlengebaude",
+        "id": 5006,
+        "position_x": 0.43113,
+        "position_y": 0.787312,
+        "region_uuid": "a1d87d0b-daa5-4a6e-a88f-ff1ca4ca339c",
+        "uuid": "91f8b651-4eb4-4bde-82ac-ca004e5e61d3"
+      },
+      {
+        "comment": "1_packing_area",
+        "id": 54,
+        "position_x": 0.0173715,
+        "position_y": 0.574624,
+        "region_uuid": "24972287-b835-4fe7-8bcd-b9923d0833c3",
+        "uuid": "92fb8ce4-a49b-40af-a69a-9787da6d27a8"
+      },
+      {
+        "comment": "m\u00e4nner",
+        "id": 4,
+        "position_x": 0.189626,
+        "position_y": 0.149859,
+        "region_uuid": "0595bf59-10df-4882-a55b-5accd77b04d3",
+        "uuid": "98042f99-7e46-4bae-a815-23c3a24c3ec4"
+      },
+      {
+        "comment": "loading_area_1",
+        "id": 29,
+        "position_x": 0.709536,
+        "position_y": 0.568585,
+        "region_uuid": "c35d2748-e54d-45c6-b939-2502f8c1a756",
+        "uuid": "a108f519-edc1-46fb-8b38-5c78c1fcb934"
+      },
+      {
+        "comment": "leere_kisten_look_up",
+        "id": 33,
+        "position_x": 0.45072,
+        "position_y": 0.60946,
+        "region_uuid": "99d0bd87-bc4b-42be-8949-ef715e729c75",
+        "uuid": "a54f382b-2377-4120-9e47-39a472d39259"
+      },
+      {
+        "comment": "garrage_2",
+        "id": 31,
+        "position_x": 0.748087,
+        "position_y": 0.353624,
+        "region_uuid": "92994ccd-788a-49e6-98ae-5bcdac324928",
+        "uuid": "a6944066-33d1-4881-8a1d-58df50be115f"
+      },
+      {
+        "comment": "Abwaschen_extra",
+        "id": 15,
+        "position_x": 0.289898,
+        "position_y": 0.632433,
+        "region_uuid": "b962a5ba-7bc5-4dbd-825b-84928477e491",
+        "uuid": "a69aff03-f022-409b-a839-a774e536f978"
+      },
+      {
+        "comment": "3_lager",
+        "id": 45,
+        "position_x": 0.358364,
+        "position_y": 0.83873,
+        "region_uuid": "160d50ba-b505-4dff-805d-7c51ee7a0300",
+        "uuid": "abad84bd-4d5c-48d2-a623-989fe4505db7"
+      },
+      {
+        "comment": "brotkisten",
+        "id": 50,
+        "position_x": 0.142131,
+        "position_y": 0.609695,
+        "region_uuid": "8219b8d3-2c4d-4187-bae4-e42a2600d8bd",
+        "uuid": "abc528bc-00e4-43ff-a21c-55c476d598f5"
+      },
+      {
+        "comment": "3_brotstation_c",
+        "id": 60,
+        "position_x": 0.378471,
+        "position_y": 0.277865,
+        "region_uuid": "bbc9bbda-1354-4b12-84fa-eb03f7ae65a9",
+        "uuid": "ac357c07-057d-4b82-861d-9078dd461d8a"
+      },
+      {
+        "comment": "prepared_goods",
+        "id": 34,
+        "position_x": 0.513398,
+        "position_y": 0.484243,
+        "region_uuid": "3e44b36a-b3c5-41e3-a989-fd39bfab8472",
+        "uuid": "b512603c-a645-4ff5-b2e1-e24f1ef1d927"
+      },
+      {
+        "comment": "outdoor_garrage",
+        "id": 5008,
+        "position_x": 0.728078,
+        "position_y": 0.177637,
+        "region_uuid": "a958865c-9af1-4af4-ac18-fb235fe85ff5",
+        "uuid": "b8bcac1d-8bbd-4eeb-9b46-90773236512d"
+      },
+      {
+        "comment": "Lager",
+        "id": 19,
+        "position_x": 0.231533,
+        "position_y": 0.841487,
+        "region_uuid": "160d50ba-b505-4dff-805d-7c51ee7a0300",
+        "uuid": "bbd077fd-9a4f-4009-96f5-4e5268b6b03e"
+      },
+      {
+        "comment": "2_flur_aufzug",
+        "id": 8,
+        "position_x": 0.223843,
+        "position_y": 0.250057,
+        "region_uuid": "572522a6-8315-4da3-a7e6-3b08bc1b6290",
+        "uuid": "c698cfef-84f6-4d49-8146-1ffd33a65b41"
+      },
+      {
+        "comment": "Lager_eingang",
+        "id": 18,
+        "position_x": 0.373596,
+        "position_y": 0.671947,
+        "region_uuid": "0b559420-c947-42e8-bd80-a0807a9d7ef9",
+        "uuid": "c78d8747-ffd6-4034-a155-d4b3019ee5ff"
+      },
+      {
+        "comment": "3_Br\u00f6tchenstation",
+        "id": 23,
+        "position_x": 0.402956,
+        "position_y": 0.298391,
+        "region_uuid": "bbc9bbda-1354-4b12-84fa-eb03f7ae65a9",
+        "uuid": "caf7c3c9-3d6b-47cf-9d2c-48c89bd19d12"
+      },
+      {
+        "comment": "2_abwaschen",
+        "id": 47,
+        "position_x": 0.252754,
+        "position_y": 0.704723,
+        "region_uuid": "8de4ec70-3dee-4c99-8a8c-494d680373b1",
+        "uuid": "ce03fb6e-6cb0-497e-a0b1-be1955200657"
+      },
+      {
+        "comment": "Br\u00f6tchen_Maschine",
+        "id": 25,
+        "position_x": 0.370975,
+        "position_y": 0.556205,
+        "region_uuid": "068c17cc-405a-4efc-9e57-05c2bbfde191",
+        "uuid": "ce9ef217-d760-4bd3-8e69-f1540d9be248"
+      },
+      {
+        "comment": "Abwaschen",
+        "id": 14,
+        "position_x": 0.213869,
+        "position_y": 0.718651,
+        "region_uuid": "8de4ec70-3dee-4c99-8a8c-494d680373b1",
+        "uuid": "cf0a9ae1-98c5-44b6-a38d-93cfaefecad2"
+      },
+      {
+        "comment": "flur_staircase",
+        "id": 49,
+        "position_x": 0.267186,
+        "position_y": 0.21345,
+        "region_uuid": "0351959c-fc2e-4759-b6d7-14ee2dd4f056",
+        "uuid": "cf2e284b-cea3-4ca2-9f1a-3b4a4433f7b1"
+      },
+      {
+        "comment": "2_brotstation_b",
+        "id": 59,
+        "position_x": 0.412333,
+        "position_y": 0.376389,
+        "region_uuid": "179748fa-070d-4c45-bcfa-e4904f946a69",
+        "uuid": "d499e7fa-b943-4d41-9c4a-5afe95ee3fd1"
+      },
+      {
+        "comment": "2_lager_eingang",
+        "id": 46,
+        "position_x": 0.372794,
+        "position_y": 0.739028,
+        "region_uuid": "0b559420-c947-42e8-bd80-a0807a9d7ef9",
+        "uuid": "d5429718-c28d-4019-a291-4a7f0815a6d9"
+      },
+      {
+        "comment": "1_Konditorei",
+        "id": 12,
+        "position_x": 0.260012,
+        "position_y": 0.442274,
+        "region_uuid": "fba15f32-ca25-498f-b461-7d27f616ead6",
+        "uuid": "dd0cd779-6146-4b2e-99c4-6f479d8e673d"
+      },
+      {
+        "comment": "sensor_deck",
+        "id": 9,
+        "position_x": 0.268908,
+        "position_y": 0.262789,
+        "region_uuid": "88e7e335-3eb2-4d7b-a343-69985bebe0e0",
+        "uuid": "e6ab976b-3875-4223-9d9a-1d78f52118e2"
+      },
+      {
+        "comment": "Silo",
+        "id": 17,
+        "position_x": 0.135024,
+        "position_y": 0.835959,
+        "region_uuid": "c4e0089d-8a07-4d9e-97a3-e9b4e584f27e",
+        "uuid": "f0024cc0-d8ff-4da9-9a9c-1511d310f8b8"
+      },
+      {
+        "comment": "outdoor_silo",
+        "id": 5005,
+        "position_x": 0.291156,
+        "position_y": 0.890838,
+        "region_uuid": "5e554db0-9403-41df-b0ae-3b26f453bbaf",
+        "uuid": "f264d415-d644-43d2-adfb-08dcb3f5c931"
+      },
+      {
+        "comment": "2_Konditorei",
+        "id": 11,
+        "position_x": 0.257007,
+        "position_y": 0.353384,
+        "region_uuid": "98939e5d-b7d3-4508-ad41-611fbc450e40",
+        "uuid": "f45ba475-6ff1-4b98-ac3e-acd46be12ea9"
+      },
+      {
+        "comment": "heizung",
+        "id": 35,
+        "position_x": 0.460804,
+        "position_y": 0.735671,
+        "region_uuid": "6cbc61b0-01df-46fa-99c1-e4986218baea",
+        "uuid": "f503e2be-b64b-474f-b33d-b4838a60ca52"
+      },
+      {
+        "comment": "eingang",
+        "id": 1,
+        "position_x": 0.289649,
+        "position_y": 0.143141,
+        "region_uuid": "ea5303fb-c315-45ec-9d50-d9062af32029",
+        "uuid": "f990fbdc-0e3c-48ca-8ca0-ba50a92c70f1"
+      }
+    ],
+    "building": "",
+    "description": "",
+    "dynamic_beacons": [
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -65,
+          "default_max_pause_duration_sec": 2,
+          "default_min_handling_duration_sec": 20,
+          "id": 6,
+          "max_distance_threshold_rssi": -60,
+          "min_distance_threshold_rssi": -90,
+          "name": "PC_WORKSTATION"
+        },
+        "blukii_type": {
+          "id": 4,
+          "name": "NO_SENSOR_DATA"
+        },
+        "comment": "4_Br\u00f6tchen_workbench",
+        "distance_threshold_rssi": -69,
+        "id": 108,
+        "max_pause_duration_sec": 2.0,
+        "min_handling_duration_sec": 10.0,
+        "uuid": "07a268d0-407d-4cb9-91fc-cf18b383efea"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -65,
+          "default_max_pause_duration_sec": 2,
+          "default_min_handling_duration_sec": 20,
+          "id": 6,
+          "max_distance_threshold_rssi": -60,
+          "min_distance_threshold_rssi": -90,
+          "name": "PC_WORKSTATION"
+        },
+        "blukii_type": {
+          "id": 4,
+          "name": "NO_SENSOR_DATA"
+        },
+        "comment": "2_Konditorei_workbench",
+        "distance_threshold_rssi": -69,
+        "id": 103,
+        "max_pause_duration_sec": 2.0,
+        "min_handling_duration_sec": 10.0,
+        "uuid": "19d517e3-f5a6-414d-a0db-27d452a03515"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -75,
+          "default_max_pause_duration_sec": 1,
+          "default_min_handling_duration_sec": 3,
+          "id": 1,
+          "max_distance_threshold_rssi": -65,
+          "min_distance_threshold_rssi": -90,
+          "name": "CART"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "1_brotwagon_7004",
+        "distance_threshold_rssi": -65,
+        "id": 7004,
+        "max_pause_duration_sec": 1.0,
+        "min_handling_duration_sec": 3.0,
+        "uuid": "24c93fab-0722-46b1-a5e5-3e161fa85bad"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -75,
+          "default_max_pause_duration_sec": 1,
+          "default_min_handling_duration_sec": 3,
+          "id": 1,
+          "max_distance_threshold_rssi": -65,
+          "min_distance_threshold_rssi": -90,
+          "name": "CART"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "2_brotwagon_7005",
+        "distance_threshold_rssi": -65,
+        "id": 7005,
+        "max_pause_duration_sec": 1.0,
+        "min_handling_duration_sec": 3.0,
+        "uuid": "37ebe347-1fa5-4812-886f-f5001c3aad8b"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -65,
+          "default_max_pause_duration_sec": 2,
+          "default_min_handling_duration_sec": 20,
+          "id": 6,
+          "max_distance_threshold_rssi": -60,
+          "min_distance_threshold_rssi": -90,
+          "name": "PC_WORKSTATION"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "handabwaschen_konditorei",
+        "distance_threshold_rssi": -65,
+        "id": 7024,
+        "max_pause_duration_sec": 2.0,
+        "min_handling_duration_sec": 10.0,
+        "uuid": "43403529-e9e2-42cf-a9e6-875c1af81ffe"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -75,
+          "default_max_pause_duration_sec": 1,
+          "default_min_handling_duration_sec": 3,
+          "id": 1,
+          "max_distance_threshold_rssi": -65,
+          "min_distance_threshold_rssi": -90,
+          "name": "CART"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "7_brotwagon_7010",
+        "distance_threshold_rssi": -65,
+        "id": 7010,
+        "max_pause_duration_sec": 1.0,
+        "min_handling_duration_sec": 3.0,
+        "uuid": "54755147-d597-4159-abbb-4007b6ecb5a6"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -75,
+          "default_max_pause_duration_sec": 1,
+          "default_min_handling_duration_sec": 3,
+          "id": 1,
+          "max_distance_threshold_rssi": -65,
+          "min_distance_threshold_rssi": -90,
+          "name": "CART"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "3_brotwagon_7006",
+        "distance_threshold_rssi": -65,
+        "id": 7006,
+        "max_pause_duration_sec": 1.0,
+        "min_handling_duration_sec": 3.0,
+        "uuid": "64b13489-a154-408d-8af4-03c8ad4257b6"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -75,
+          "default_max_pause_duration_sec": 1,
+          "default_min_handling_duration_sec": 3,
+          "id": 1,
+          "max_distance_threshold_rssi": -65,
+          "min_distance_threshold_rssi": -90,
+          "name": "CART"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "4_brotwagon_7007",
+        "distance_threshold_rssi": -65,
+        "id": 7007,
+        "max_pause_duration_sec": 1.0,
+        "min_handling_duration_sec": 3.0,
+        "uuid": "7c45f9c5-c54e-4899-a9db-1e4584ea45ad"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -75,
+          "default_max_pause_duration_sec": 1,
+          "default_min_handling_duration_sec": 3,
+          "id": 1,
+          "max_distance_threshold_rssi": -65,
+          "min_distance_threshold_rssi": -90,
+          "name": "CART"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "5_brotwagon_7008",
+        "distance_threshold_rssi": -65,
+        "id": 7008,
+        "max_pause_duration_sec": 1.0,
+        "min_handling_duration_sec": 3.0,
+        "uuid": "8b371d78-260e-40c7-9872-c079814e2b75"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -75,
+          "default_max_pause_duration_sec": 1,
+          "default_min_handling_duration_sec": 3,
+          "id": 2,
+          "max_distance_threshold_rssi": -65,
+          "min_distance_threshold_rssi": -90,
+          "name": "TOOL"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "big_area_k\u00fchlraum_1_next_to_boxes",
+        "distance_threshold_rssi": -65,
+        "id": 7027,
+        "max_pause_duration_sec": 1.0,
+        "min_handling_duration_sec": 3.0,
+        "uuid": "8f722fcd-515a-4803-bc23-a62f790c993b"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -75,
+          "default_max_pause_duration_sec": 1,
+          "default_min_handling_duration_sec": 3,
+          "id": 2,
+          "max_distance_threshold_rssi": -65,
+          "min_distance_threshold_rssi": -90,
+          "name": "TOOL"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "g\u00e4rraum_handle",
+        "distance_threshold_rssi": -65,
+        "id": 7002,
+        "max_pause_duration_sec": 1.0,
+        "min_handling_duration_sec": 3.0,
+        "uuid": "915fb082-7f7f-4743-bc48-5c410fb7da89"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -65,
+          "default_max_pause_duration_sec": 2,
+          "default_min_handling_duration_sec": 20,
+          "id": 6,
+          "max_distance_threshold_rssi": -60,
+          "min_distance_threshold_rssi": -90,
+          "name": "PC_WORKSTATION"
+        },
+        "blukii_type": {
+          "id": 4,
+          "name": "NO_SENSOR_DATA"
+        },
+        "comment": "3_Br\u00f6tchen_workbench_DO_NOT_USE",
+        "distance_threshold_rssi": -69,
+        "id": 107,
+        "max_pause_duration_sec": 2.0,
+        "min_handling_duration_sec": 10.0,
+        "uuid": "9534d3a1-89eb-43f4-afc2-4e0ea77e8081"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -75,
+          "default_max_pause_duration_sec": 1,
+          "default_min_handling_duration_sec": 3,
+          "id": 2,
+          "max_distance_threshold_rssi": -65,
+          "min_distance_threshold_rssi": -90,
+          "name": "TOOL"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "k\u00fchlraum_handle",
+        "distance_threshold_rssi": -65,
+        "id": 7003,
+        "max_pause_duration_sec": 1.0,
+        "min_handling_duration_sec": 3.0,
+        "uuid": "96e0d657-45e8-42cf-9c40-d94e2774e416"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -65,
+          "default_max_pause_duration_sec": 2,
+          "default_min_handling_duration_sec": 20,
+          "id": 6,
+          "max_distance_threshold_rssi": -60,
+          "min_distance_threshold_rssi": -90,
+          "name": "PC_WORKSTATION"
+        },
+        "blukii_type": {
+          "id": 4,
+          "name": "NO_SENSOR_DATA"
+        },
+        "comment": "1_Br\u00f6tchen_workbench",
+        "distance_threshold_rssi": -69,
+        "id": 105,
+        "max_pause_duration_sec": 2.0,
+        "min_handling_duration_sec": 10.0,
+        "uuid": "adc9b44e-33d9-4807-8617-c61b707a3364"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -65,
+          "default_max_pause_duration_sec": 2,
+          "default_min_handling_duration_sec": 20,
+          "id": 6,
+          "max_distance_threshold_rssi": -60,
+          "min_distance_threshold_rssi": -90,
+          "name": "PC_WORKSTATION"
+        },
+        "blukii_type": {
+          "id": 4,
+          "name": "NO_SENSOR_DATA"
+        },
+        "comment": "3_Konditorei_workbench",
+        "distance_threshold_rssi": -69,
+        "id": 102,
+        "max_pause_duration_sec": 2.0,
+        "min_handling_duration_sec": 10.0,
+        "uuid": "b3a497ab-1305-41ef-84ff-6d04b2ecfa33"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -75,
+          "default_max_pause_duration_sec": 1,
+          "default_min_handling_duration_sec": 3,
+          "id": 2,
+          "max_distance_threshold_rssi": -65,
+          "min_distance_threshold_rssi": -90,
+          "name": "TOOL"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "ronda_dough_big_machine",
+        "distance_threshold_rssi": -65,
+        "id": 7001,
+        "max_pause_duration_sec": 1.0,
+        "min_handling_duration_sec": 3.0,
+        "uuid": "bbb760b9-bfc6-4aae-9964-2586aba2f758"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -65,
+          "default_max_pause_duration_sec": 2,
+          "default_min_handling_duration_sec": 20,
+          "id": 6,
+          "max_distance_threshold_rssi": -60,
+          "min_distance_threshold_rssi": -90,
+          "name": "PC_WORKSTATION"
+        },
+        "blukii_type": {
+          "id": 4,
+          "name": "NO_SENSOR_DATA"
+        },
+        "comment": "sensorDeck",
+        "distance_threshold_rssi": -60,
+        "id": 101,
+        "max_pause_duration_sec": 1.0,
+        "min_handling_duration_sec": 1.0,
+        "uuid": "c644d1ae-8daf-4a19-84e1-004b6403f20c"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -65,
+          "default_max_pause_duration_sec": 2,
+          "default_min_handling_duration_sec": 20,
+          "id": 6,
+          "max_distance_threshold_rssi": -60,
+          "min_distance_threshold_rssi": -90,
+          "name": "PC_WORKSTATION"
+        },
+        "blukii_type": {
+          "id": 4,
+          "name": "NO_SENSOR_DATA"
+        },
+        "comment": "1_Konditorei_workbench",
+        "distance_threshold_rssi": -69,
+        "id": 104,
+        "max_pause_duration_sec": 2.0,
+        "min_handling_duration_sec": 10.0,
+        "uuid": "d28d4d52-e574-413f-a999-b54fd1801fda"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -65,
+          "default_max_pause_duration_sec": 2,
+          "default_min_handling_duration_sec": 20,
+          "id": 6,
+          "max_distance_threshold_rssi": -60,
+          "min_distance_threshold_rssi": -90,
+          "name": "PC_WORKSTATION"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "production_plan_counter",
+        "distance_threshold_rssi": -65,
+        "id": 7025,
+        "max_pause_duration_sec": 2.0,
+        "min_handling_duration_sec": 5.0,
+        "uuid": "d3ce5111-7221-4910-8d02-7a8b1cc88bba"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -65,
+          "default_max_pause_duration_sec": 2,
+          "default_min_handling_duration_sec": 20,
+          "id": 6,
+          "max_distance_threshold_rssi": -60,
+          "min_distance_threshold_rssi": -90,
+          "name": "PC_WORKSTATION"
+        },
+        "blukii_type": {
+          "id": 4,
+          "name": "NO_SENSOR_DATA"
+        },
+        "comment": "2_Br\u00f6tchen_workbench",
+        "distance_threshold_rssi": -69,
+        "id": 106,
+        "max_pause_duration_sec": 2.0,
+        "min_handling_duration_sec": 10.0,
+        "uuid": "d3d06af5-cc69-4938-b73e-659686d30873"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -65,
+          "default_max_pause_duration_sec": 2,
+          "default_min_handling_duration_sec": 20,
+          "id": 6,
+          "max_distance_threshold_rssi": -60,
+          "min_distance_threshold_rssi": -90,
+          "name": "PC_WORKSTATION"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "ladder_behind_brot_3_Ronda_dough",
+        "distance_threshold_rssi": -64,
+        "id": 7026,
+        "max_pause_duration_sec": 2.0,
+        "min_handling_duration_sec": 15.0,
+        "uuid": "d68e8bd2-02b9-479b-b88a-4da906d0faa1"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -75,
+          "default_max_pause_duration_sec": 1,
+          "default_min_handling_duration_sec": 3,
+          "id": 1,
+          "max_distance_threshold_rssi": -65,
+          "min_distance_threshold_rssi": -90,
+          "name": "CART"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "6_brotwagon_7009",
+        "distance_threshold_rssi": -65,
+        "id": 7009,
+        "max_pause_duration_sec": 1.0,
+        "min_handling_duration_sec": 3.0,
+        "uuid": "e30e48c0-2dfb-447d-99a4-54e92dbf1b91"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -75,
+          "default_max_pause_duration_sec": 1,
+          "default_min_handling_duration_sec": 3,
+          "id": 2,
+          "max_distance_threshold_rssi": -65,
+          "min_distance_threshold_rssi": -90,
+          "name": "TOOL"
+        },
+        "blukii_type": {
+          "id": 1,
+          "name": "ACCELEROMETER"
+        },
+        "comment": "big_area_k\u00fchlraum_2_next_to_loading_area",
+        "distance_threshold_rssi": -65,
+        "id": 7028,
+        "max_pause_duration_sec": 1.0,
+        "min_handling_duration_sec": 3.0,
+        "uuid": "e8effdf7-4644-4fc7-9a1c-75823bd43303"
+      },
+      {
+        "beacon_type": {
+          "default_distance_threshold_rssi": -75,
+          "default_max_pause_duration_sec": 1,
+          "default_min_handling_duration_sec": 3,
+          "id": 4,
+          "max_distance_threshold_rssi": -65,
+          "min_distance_threshold_rssi": -90,
+          "name": "OTHER"
+        },
+        "blukii_type": {
+          "id": 4,
+          "name": "NO_SENSOR_DATA"
+        },
+        "comment": "Mehl_maschine",
+        "distance_threshold_rssi": -65,
+        "id": 110,
+        "max_pause_duration_sec": 2.0,
+        "min_handling_duration_sec": 10.0,
+        "uuid": "e94aad52-0968-44a7-8abe-a51f80147840"
+      }
+    ],
+    "height_pixel": 1539,
+    "lat": 51.493,
+    "lng": 7.40571,
+    "name": "test",
+    "region_labels": [
+      {
+        "color": "#fff5c8",
+        "name": "flur",
+        "uuid": "194b82cd-0cec-4f76-ace9-485e15aeae82"
+      },
+      {
+        "color": "#af2222",
+        "name": "not_an_area_of_interest",
+        "uuid": "32e66629-f6f8-4f4b-a279-c4f7d0d62977"
+      },
+      {
+        "color": "#8c3606",
+        "name": "silo",
+        "uuid": "33d93c65-320b-4533-a943-dd1f7937be64"
+      },
+      {
+        "color": "#e8655f",
+        "name": "Ofen",
+        "uuid": "65d64417-060e-42ad-93b8-b8388067342a"
+      },
+      {
+        "color": "#926e5a",
+        "name": "Lager",
+        "uuid": "6bca6abc-074f-4a9a-9975-ddf0749e4352"
+      },
+      {
+        "color": "#316c2f",
+        "name": "wagon_holding",
+        "uuid": "7d8a6aec-d7d3-4c7b-8f22-679bf19b75ec"
+      },
+      {
+        "color": "#b2f1ff",
+        "name": "door_handle_blukii",
+        "uuid": "84668194-9dcf-4656-aa39-4cef0a541674"
+      },
+      {
+        "color": "#3f2b20",
+        "name": "production_plan_area",
+        "uuid": "a42b09bf-8f11-48dd-b75d-56f8020afcb3"
+      },
+      {
+        "color": "#ffa472",
+        "name": "no_video",
+        "uuid": "b099e8a6-9563-4200-8d3b-3112bf24a1e0"
+      },
+      {
+        "color": "#9a4767",
+        "name": "loading_area",
+        "uuid": "b5c1a35f-0ceb-4409-910e-4a5a2c4ea657"
+      },
+      {
+        "color": "#ff0036",
+        "name": "Sensordeck",
+        "uuid": "bf8855e5-a9e6-41fc-8d2c-c0a0ef5854b9"
+      },
+      {
+        "color": "#a0ff72",
+        "name": "Abwaschen",
+        "uuid": "d7b194d5-d90f-4a36-bc88-9da75613bffb"
+      },
+      {
+        "color": "#2d5f91",
+        "name": "K\u00fchlraum",
+        "uuid": "dbb6d06b-51ff-433b-971b-9aac3dab5b71"
+      },
+      {
+        "color": "#ffa472",
+        "name": "Br\u00f6tchen",
+        "uuid": "e297bc11-963b-4189-8388-c850dea9cc72"
+      },
+      {
+        "color": "#f1a39f",
+        "name": "WC",
+        "uuid": "ee490129-54e7-449e-ac12-1737b7ea8196"
+      },
+      {
+        "color": "#ff72e4",
+        "name": "Konditorei",
+        "uuid": "f0f6f49e-128d-45f5-b3a7-d6c66c7bbe2d"
+      },
+      {
+        "color": "#74ae75",
+        "name": "outdoor",
+        "uuid": "f302456d-756b-4784-a068-9e7810de97e4"
+      }
+    ],
+    "regions": [
+      {
+        "exclude_from_eval": false,
+        "id": 40,
+        "name": "flur_staircase_up",
+        "position_bottom_right_x": 0.2828,
+        "position_bottom_right_y": 0.233635,
+        "position_top_left_x": 0.254883,
+        "position_top_left_y": 0.200036,
+        "region_label_uuid": "194b82cd-0cec-4f76-ace9-485e15aeae82",
+        "special_activities": [],
+        "uuid": "0351959c-fc2e-4759-b6d7-14ee2dd4f056"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 2,
+        "name": "flur_eingang_umkleidung_WC",
+        "position_bottom_right_x": 0.28444,
+        "position_bottom_right_y": 0.193149,
+        "position_top_left_x": 0.0932503,
+        "position_top_left_y": 0.0543205,
+        "region_label_uuid": "194b82cd-0cec-4f76-ace9-485e15aeae82",
+        "special_activities": [],
+        "uuid": "0595bf59-10df-4882-a55b-5accd77b04d3"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 33,
+        "name": "leere_Brotwagen",
+        "position_bottom_right_x": 0.395083,
+        "position_bottom_right_y": 0.610976,
+        "position_top_left_x": 0.350746,
+        "position_top_left_y": 0.553853,
+        "region_label_uuid": "7d8a6aec-d7d3-4c7b-8f22-679bf19b75ec",
+        "special_activities": [],
+        "uuid": "068c17cc-405a-4efc-9e57-05c2bbfde191"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 12,
+        "name": "Lager_eingang",
+        "position_bottom_right_x": 0.385301,
+        "position_bottom_right_y": 0.756487,
+        "position_top_left_x": 0.328219,
+        "position_top_left_y": 0.632433,
+        "region_label_uuid": "6bca6abc-074f-4a9a-9975-ddf0749e4352",
+        "special_activities": [],
+        "uuid": "0b559420-c947-42e8-bd80-a0807a9d7ef9"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 47,
+        "name": "outdoor_loading_area",
+        "position_bottom_right_x": 0.927532,
+        "position_bottom_right_y": 0.66292,
+        "position_top_left_x": 0.76166,
+        "position_top_left_y": 0.422841,
+        "region_label_uuid": "f302456d-756b-4784-a068-9e7810de97e4",
+        "special_activities": [],
+        "uuid": "145254f2-666b-4fa9-a4ed-015d6fd58587"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 13,
+        "name": "Lager",
+        "position_bottom_right_x": 0.384543,
+        "position_bottom_right_y": 0.870464,
+        "position_top_left_x": 0.199773,
+        "position_top_left_y": 0.759029,
+        "region_label_uuid": "6bca6abc-074f-4a9a-9975-ddf0749e4352",
+        "special_activities": [],
+        "uuid": "160d50ba-b505-4dff-805d-7c51ee7a0300"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 24,
+        "name": "2_Brotstation",
+        "position_bottom_right_x": 0.439944,
+        "position_bottom_right_y": 0.433115,
+        "position_top_left_x": 0.3394,
+        "position_top_left_y": 0.342428,
+        "region_label_uuid": "e297bc11-963b-4189-8388-c850dea9cc72",
+        "special_activities": [],
+        "uuid": "179748fa-070d-4c45-bcfa-e4904f946a69"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 30,
+        "name": "Etagenofen",
+        "position_bottom_right_x": 0.559837,
+        "position_bottom_right_y": 0.32941,
+        "position_top_left_x": 0.478902,
+        "position_top_left_y": 0.215713,
+        "region_label_uuid": "65d64417-060e-42ad-93b8-b8388067342a",
+        "special_activities": [],
+        "uuid": "1c978883-9683-46c6-8e09-57a9ca7eb1d4"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 32,
+        "name": "klein_k\u00fchlschrank_und_wasser",
+        "position_bottom_right_x": 0.327374,
+        "position_bottom_right_y": 0.266763,
+        "position_top_left_x": 0.289567,
+        "position_top_left_y": 0.202747,
+        "region_label_uuid": "e297bc11-963b-4189-8388-c850dea9cc72",
+        "special_activities": [],
+        "uuid": "1f42cae2-dcfe-468d-8712-e4e24f27e44c"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 4,
+        "name": "production_plan",
+        "position_bottom_right_x": 0.206335,
+        "position_bottom_right_y": 0.621502,
+        "position_top_left_x": 0.151652,
+        "position_top_left_y": 0.571012,
+        "region_label_uuid": "a42b09bf-8f11-48dd-b75d-56f8020afcb3",
+        "special_activities": [],
+        "uuid": "2141d676-f552-4892-86c3-33aa0fbd48e9"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 41,
+        "name": "staircase_down",
+        "position_bottom_right_x": 0.247066,
+        "position_bottom_right_y": 0.234435,
+        "position_top_left_x": 0.196257,
+        "position_top_left_y": 0.200836,
+        "region_label_uuid": "32e66629-f6f8-4f4b-a279-c4f7d0d62977",
+        "special_activities": [],
+        "uuid": "222571a3-487f-470f-bf0f-e735658588d3"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 17,
+        "name": "Sauerteigraum",
+        "position_bottom_right_x": 0.357758,
+        "position_bottom_right_y": 0.199636,
+        "position_top_left_x": 0.330678,
+        "position_top_left_y": 0.139239,
+        "region_label_uuid": "84668194-9dcf-4656-aa39-4cef0a541674",
+        "special_activities": [],
+        "uuid": "22af8a49-a9d9-466b-a30c-0991c6cd67b8"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 43,
+        "name": "cookies_packing_hand",
+        "position_bottom_right_x": 0.0863214,
+        "position_bottom_right_y": 0.746584,
+        "position_top_left_x": 0.00930917,
+        "position_top_left_y": 0.427691,
+        "region_label_uuid": "b099e8a6-9563-4200-8d3b-3112bf24a1e0",
+        "special_activities": [],
+        "uuid": "24972287-b835-4fe7-8bcd-b9923d0833c3"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 34,
+        "name": "bereitstellen_prepared_goods",
+        "position_bottom_right_x": 0.539093,
+        "position_bottom_right_y": 0.495746,
+        "position_top_left_x": 0.476884,
+        "position_top_left_y": 0.445518,
+        "region_label_uuid": "7d8a6aec-d7d3-4c7b-8f22-679bf19b75ec",
+        "special_activities": [],
+        "uuid": "3e44b36a-b3c5-41e3-a989-fd39bfab8472"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 36,
+        "name": "Rollenhandtuchspend",
+        "position_bottom_right_x": 0.404779,
+        "position_bottom_right_y": 0.237933,
+        "position_top_left_x": 0.360759,
+        "position_top_left_y": 0.140529,
+        "region_label_uuid": "e297bc11-963b-4189-8388-c850dea9cc72",
+        "special_activities": [],
+        "uuid": "5412f0f3-808b-4929-bf37-63019f0ecf66"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 39,
+        "name": "2_flur_aufzug",
+        "position_bottom_right_x": 0.225849,
+        "position_bottom_right_y": 0.270433,
+        "position_top_left_x": 0.191232,
+        "position_top_left_y": 0.241634,
+        "region_label_uuid": "194b82cd-0cec-4f76-ace9-485e15aeae82",
+        "special_activities": [],
+        "uuid": "572522a6-8315-4da3-a7e6-3b08bc1b6290"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 44,
+        "name": "outdoor_silo",
+        "position_bottom_right_x": 0.391837,
+        "position_bottom_right_y": 0.953216,
+        "position_top_left_x": 0.203175,
+        "position_top_left_y": 0.88694,
+        "region_label_uuid": "f302456d-756b-4784-a068-9e7810de97e4",
+        "special_activities": [],
+        "uuid": "5e554db0-9403-41df-b0ae-3b26f453bbaf"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 23,
+        "name": "1_Brotstation",
+        "position_bottom_right_x": 0.442027,
+        "position_bottom_right_y": 0.505888,
+        "position_top_left_x": 0.339921,
+        "position_top_left_y": 0.449909,
+        "region_label_uuid": "e297bc11-963b-4189-8388-c850dea9cc72",
+        "special_activities": [],
+        "uuid": "622787df-1735-4540-b46c-c53050012dae"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 48,
+        "name": "Kompressoren_Heizung",
+        "position_bottom_right_x": 0.557939,
+        "position_bottom_right_y": 0.776082,
+        "position_top_left_x": 0.397486,
+        "position_top_left_y": 0.622325,
+        "region_label_uuid": "32e66629-f6f8-4f4b-a279-c4f7d0d62977",
+        "special_activities": [],
+        "uuid": "6cbc61b0-01df-46fa-99c1-e4986218baea"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 28,
+        "name": "1_Stickenofen",
+        "position_bottom_right_x": 0.535277,
+        "position_bottom_right_y": 0.426479,
+        "position_top_left_x": 0.47371,
+        "position_top_left_y": 0.384041,
+        "region_label_uuid": "65d64417-060e-42ad-93b8-b8388067342a",
+        "special_activities": [],
+        "uuid": "7f2c11ac-a7ad-4e9f-9a04-48bf6969a141"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 10,
+        "name": "K\u00fcche",
+        "position_bottom_right_x": 0.193061,
+        "position_bottom_right_y": 0.737534,
+        "position_top_left_x": 0.0868577,
+        "position_top_left_y": 0.633452,
+        "region_label_uuid": "32e66629-f6f8-4f4b-a279-c4f7d0d62977",
+        "special_activities": [],
+        "uuid": "806b6171-ba18-4a82-b49f-230afdb2b995"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 3,
+        "name": "brotkisten_regal",
+        "position_bottom_right_x": 0.147514,
+        "position_bottom_right_y": 0.621406,
+        "position_top_left_x": 0.0923568,
+        "position_top_left_y": 0.513893,
+        "region_label_uuid": "7d8a6aec-d7d3-4c7b-8f22-679bf19b75ec",
+        "special_activities": [],
+        "uuid": "8219b8d3-2c4d-4187-bae4-e42a2600d8bd"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 35,
+        "name": "SENSORDECK_TechnikRaum",
+        "position_bottom_right_x": 0.282131,
+        "position_bottom_right_y": 0.268851,
+        "position_top_left_x": 0.248491,
+        "position_top_left_y": 0.240963,
+        "region_label_uuid": "bf8855e5-a9e6-41fc-8d2c-c0a0ef5854b9",
+        "special_activities": [],
+        "uuid": "88e7e335-3eb2-4d7b-a343-69985bebe0e0"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 42,
+        "name": "outdoor_eingang",
+        "position_bottom_right_x": 0.576959,
+        "position_bottom_right_y": 0.122525,
+        "position_top_left_x": 0.296014,
+        "position_top_left_y": 0.0138848,
+        "region_label_uuid": "f302456d-756b-4784-a068-9e7810de97e4",
+        "special_activities": [],
+        "uuid": "8a11c86e-6dab-4a01-958e-031ac0b31aef"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 8,
+        "name": "Abwaschen_area",
+        "position_bottom_right_x": 0.2847,
+        "position_bottom_right_y": 0.749212,
+        "position_top_left_x": 0.197701,
+        "position_top_left_y": 0.632028,
+        "region_label_uuid": "d7b194d5-d90f-4a36-bc88-9da75613bffb",
+        "special_activities": [],
+        "uuid": "8de4ec70-3dee-4c99-8a8c-494d680373b1"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 15,
+        "name": "Garragengeb\u00e4ude",
+        "position_bottom_right_x": 0.752898,
+        "position_bottom_right_y": 0.420764,
+        "position_top_left_x": 0.577998,
+        "position_top_left_y": 0.203551,
+        "region_label_uuid": "b5c1a35f-0ceb-4409-910e-4a5a2c4ea657",
+        "special_activities": [],
+        "uuid": "92994ccd-788a-49e6-98ae-5bcdac324928"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 20,
+        "name": "2_Konditorei_station",
+        "position_bottom_right_x": 0.281391,
+        "position_bottom_right_y": 0.417688,
+        "position_top_left_x": 0.220881,
+        "position_top_left_y": 0.328265,
+        "region_label_uuid": "f0f6f49e-128d-45f5-b3a7-d6c66c7bbe2d",
+        "special_activities": [],
+        "uuid": "98939e5d-b7d3-4508-ad41-611fbc450e40"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 37,
+        "name": "leere_Kisten",
+        "position_bottom_right_x": 0.479977,
+        "position_bottom_right_y": 0.613438,
+        "position_top_left_x": 0.42361,
+        "position_top_left_y": 0.553361,
+        "region_label_uuid": "7d8a6aec-d7d3-4c7b-8f22-679bf19b75ec",
+        "special_activities": [],
+        "uuid": "99d0bd87-bc4b-42be-8949-ef715e729c75"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 45,
+        "name": "outdoor_lager_m\u00fchlengeb\u00e4ude",
+        "position_bottom_right_x": 0.559637,
+        "position_bottom_right_y": 0.892138,
+        "position_top_left_x": 0.395465,
+        "position_top_left_y": 0.790773,
+        "region_label_uuid": "f302456d-756b-4784-a068-9e7810de97e4",
+        "special_activities": [],
+        "uuid": "a1d87d0b-daa5-4a6e-a88f-ff1ca4ca339c"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 46,
+        "name": "outdoor_garrage",
+        "position_bottom_right_x": 0.760068,
+        "position_bottom_right_y": 0.193896,
+        "position_top_left_x": 0.582945,
+        "position_top_left_y": 0.0102833,
+        "region_label_uuid": "f302456d-756b-4784-a068-9e7810de97e4",
+        "special_activities": [],
+        "uuid": "a958865c-9af1-4af4-ac18-fb235fe85ff5"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 31,
+        "name": "G\u00e4rraum",
+        "position_bottom_right_x": 0.565558,
+        "position_bottom_right_y": 0.212596,
+        "position_top_left_x": 0.486163,
+        "position_top_left_y": 0.143162,
+        "region_label_uuid": "84668194-9dcf-4656-aa39-4cef0a541674",
+        "special_activities": [],
+        "uuid": "b84ba625-c9bc-46b2-ac6f-9cae97431044"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 9,
+        "name": "Abwaschen_extra",
+        "position_bottom_right_x": 0.323088,
+        "position_bottom_right_y": 0.714217,
+        "position_top_left_x": 0.285248,
+        "position_top_left_y": 0.631514,
+        "region_label_uuid": "d7b194d5-d90f-4a36-bc88-9da75613bffb",
+        "special_activities": [],
+        "uuid": "b962a5ba-7bc5-4dbd-825b-84928477e491"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 25,
+        "name": "3_Brotstation",
+        "position_bottom_right_x": 0.441507,
+        "position_bottom_right_y": 0.327127,
+        "position_top_left_x": 0.3394,
+        "position_top_left_y": 0.277492,
+        "region_label_uuid": "e297bc11-963b-4189-8388-c850dea9cc72",
+        "special_activities": [],
+        "uuid": "bbc9bbda-1354-4b12-84fa-eb03f7ae65a9"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 16,
+        "name": "Brotwagon_regal_haltebereich",
+        "position_bottom_right_x": 0.482702,
+        "position_bottom_right_y": 0.207922,
+        "position_top_left_x": 0.41521,
+        "position_top_left_y": 0.138809,
+        "region_label_uuid": "e297bc11-963b-4189-8388-c850dea9cc72",
+        "special_activities": [],
+        "uuid": "bdff3387-579b-4e97-8714-47fdebf78a85"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 22,
+        "name": "Mehlmaschine",
+        "position_bottom_right_x": 0.328032,
+        "position_bottom_right_y": 0.501776,
+        "position_top_left_x": 0.288985,
+        "position_top_left_y": 0.364554,
+        "region_label_uuid": "e297bc11-963b-4189-8388-c850dea9cc72",
+        "special_activities": [],
+        "uuid": "c1713e75-feb9-4e85-8c94-72a287e3b44b"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 14,
+        "name": "loading_area",
+        "position_bottom_right_x": 0.755119,
+        "position_bottom_right_y": 0.579035,
+        "position_top_left_x": 0.572265,
+        "position_top_left_y": 0.426024,
+        "region_label_uuid": "b5c1a35f-0ceb-4409-910e-4a5a2c4ea657",
+        "special_activities": [],
+        "uuid": "c35d2748-e54d-45c6-b939-2502f8c1a756"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 11,
+        "name": "Silo",
+        "position_bottom_right_x": 0.19543,
+        "position_bottom_right_y": 0.937777,
+        "position_top_left_x": 0.0904109,
+        "position_top_left_y": 0.742625,
+        "region_label_uuid": "33d93c65-320b-4533-a943-dd1f7937be64",
+        "special_activities": [],
+        "uuid": "c4e0089d-8a07-4d9e-97a3-e9b4e584f27e"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 5,
+        "name": "Fettbacken",
+        "position_bottom_right_x": 0.159672,
+        "position_bottom_right_y": 0.273014,
+        "position_top_left_x": 0.0940318,
+        "position_top_left_y": 0.199121,
+        "region_label_uuid": "32e66629-f6f8-4f4b-a279-c4f7d0d62977",
+        "special_activities": [],
+        "uuid": "d8b0fa58-1194-4d8f-aa3e-714df53cc301"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 38,
+        "name": "1_flur_aufzug",
+        "position_bottom_right_x": 0.189557,
+        "position_bottom_right_y": 0.272033,
+        "position_top_left_x": 0.16164,
+        "position_top_left_y": 0.200836,
+        "region_label_uuid": "194b82cd-0cec-4f76-ace9-485e15aeae82",
+        "special_activities": [],
+        "uuid": "d8c8d4bd-e755-400a-a251-3a2dbedd697c"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 6,
+        "name": "1_corridor",
+        "position_bottom_right_x": 0.293737,
+        "position_bottom_right_y": 0.626664,
+        "position_top_left_x": 0.207669,
+        "position_top_left_y": 0.52032,
+        "region_label_uuid": "a42b09bf-8f11-48dd-b75d-56f8020afcb3",
+        "special_activities": [],
+        "uuid": "d8f394a6-e073-47bc-8c24-95276df622f3"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 29,
+        "name": "2_Stickenofen",
+        "position_bottom_right_x": 0.534175,
+        "position_bottom_right_y": 0.380037,
+        "position_top_left_x": 0.473572,
+        "position_top_left_y": 0.333653,
+        "region_label_uuid": "65d64417-060e-42ad-93b8-b8388067342a",
+        "special_activities": [],
+        "uuid": "e8afb952-7e3c-417f-80e5-722052b81961"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 21,
+        "name": "3_Konditorei_station",
+        "position_bottom_right_x": 0.283051,
+        "position_bottom_right_y": 0.324385,
+        "position_top_left_x": 0.203462,
+        "position_top_left_y": 0.273799,
+        "region_label_uuid": "f0f6f49e-128d-45f5-b3a7-d6c66c7bbe2d",
+        "special_activities": [],
+        "uuid": "e977ec47-b078-4d76-b101-e9e8c26111ef"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 1,
+        "name": "eingang_area",
+        "position_bottom_right_x": 0.326351,
+        "position_bottom_right_y": 0.193636,
+        "position_top_left_x": 0.287825,
+        "position_top_left_y": 0.138439,
+        "region_label_uuid": "32e66629-f6f8-4f4b-a279-c4f7d0d62977",
+        "special_activities": [],
+        "uuid": "ea5303fb-c315-45ec-9d50-d9062af32029"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 26,
+        "name": "4_Brotstation",
+        "position_bottom_right_x": 0.323249,
+        "position_bottom_right_y": 0.356758,
+        "position_top_left_x": 0.29086,
+        "position_top_left_y": 0.269461,
+        "region_label_uuid": "e297bc11-963b-4189-8388-c850dea9cc72",
+        "special_activities": [],
+        "uuid": "f058242b-3b39-4619-8079-eae982fc9648"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 18,
+        "name": "konditorei_deco",
+        "position_bottom_right_x": 0.18792,
+        "position_bottom_right_y": 0.506541,
+        "position_top_left_x": 0.0955636,
+        "position_top_left_y": 0.432109,
+        "region_label_uuid": "f0f6f49e-128d-45f5-b3a7-d6c66c7bbe2d",
+        "special_activities": [],
+        "uuid": "f3b35038-212d-444a-95ad-5d2724add74d"
+      },
+      {
+        "exclude_from_eval": false,
+        "id": 19,
+        "name": "1_Konditorei_station",
+        "position_bottom_right_x": 0.281618,
+        "position_bottom_right_y": 0.501776,
+        "position_top_left_x": 0.223047,
+        "position_top_left_y": 0.418915,
+        "region_label_uuid": "f0f6f49e-128d-45f5-b3a7-d6c66c7bbe2d",
+        "special_activities": [],
+        "uuid": "fba15f32-ca25-498f-b461-7d27f616ead6"
+      }
+    ],
+    "uuid": "b94fe078-dabf-432d-a90a-36b4f0e38770",
+    "width_pixel": 2205
+  },
+  "name": "bakery",
+  "shifts": [
+    {
+      "name": "Night Shift",
+      "num_workers": 8,
+      "shift_breaks": [
+        {
+          "break_end": null,
+          "break_start": null,
+          "duration": 30,
+          "shift_uuid": "3af56c8d-f5ed-4afc-a439-d13a7e1acba2",
+          "use_exact_time": false,
+          "uuid": "a77333a6-97d8-4533-b0fa-6f1e92c24708"
+        }
+      ],
+      "shift_end": "13:00:00",
+      "shift_start": "22:00:00",
+      "uuid": "3af56c8d-f5ed-4afc-a439-d13a7e1acba2"
+    }
+  ],
+  "time_zone": "Europe/Berlin",
+  "uuid": "c32fdcf0-f3cf-47c3-b19c-b0a7dfc35e20"
+}
