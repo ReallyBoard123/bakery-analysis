@@ -7,6 +7,7 @@ Functions for creating visualizations of employee activities.
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import pandas as pd
 from pathlib import Path
 
 from ..utils.time_utils import format_seconds_to_hms, format_seconds_to_hours
@@ -58,14 +59,14 @@ def plot_activity_distribution(data, save_path=None, figsize=(12, 7)):
     
     return fig
 
-def plot_activity_distribution_by_employee(activity_profile, save_path=None, figsize=(14, 8)):
+def plot_activity_distribution_by_employee(data, save_path=None, figsize=(14, 8)):
     """
     Plot activity distribution by employee as a heatmap
     
     Parameters:
     -----------
-    activity_profile : pandas.DataFrame
-        Pivot table with employees as index and activities as columns
+    data : pandas.DataFrame
+        Input dataframe with activities
     save_path : str or Path, optional
         Path to save the visualization
     figsize : tuple, optional
@@ -79,12 +80,59 @@ def plot_activity_distribution_by_employee(activity_profile, save_path=None, fig
     set_visualization_style()
     fig, ax = plt.subplots(figsize=figsize)
     
-    # Create heatmap with custom colormap
+    # Calculate total duration by employee
+    emp_totals = data.groupby('id')['duration'].sum().reset_index()
+    
+    # Calculate activity durations by employee
+    emp_activity = data.groupby(['id', 'activity'])['duration'].sum().reset_index()
+    
+    # Merge to get employee totals
+    emp_activity = pd.merge(emp_activity, emp_totals, on='id', suffixes=('', '_total'))
+    
+    # Calculate percentage and format time
+    emp_activity['percentage'] = (emp_activity['duration'] / emp_activity['duration_total'] * 100).round(1)
+    emp_activity['formatted_time'] = emp_activity['duration'].apply(format_seconds_to_hms)
+    
+    # Create pivot table for percentages
+    pivot_pct = pd.pivot_table(
+        emp_activity,
+        values='percentage',
+        index='id',
+        columns='activity',
+        fill_value=0
+    )
+    
+    # Create pivot table for formatted times (as strings)
+    pivot_time = pd.pivot_table(
+        emp_activity,
+        values='formatted_time',
+        index='id',
+        columns='activity',
+        fill_value='00:00:00',
+        aggfunc=lambda x: x.iloc[0] if len(x) > 0 else '00:00:00'  # Just take the first value since they're all the same
+    )
+    
+    # Create a custom annotation function to show both percentage and time
+    def custom_format(val, time_val):
+        hours = time_val.split(':')[0]
+        mins_secs = ':'.join(time_val.split(':')[1:])
+        return f"{val:.1f}%\n{hours}:{mins_secs}"
+    
+    # Create annotation matrix
+    annotations = np.empty_like(pivot_pct.values, dtype=object)
+    for i in range(pivot_pct.shape[0]):
+        for j in range(pivot_pct.shape[1]):
+            annotations[i, j] = custom_format(
+                pivot_pct.values[i, j], 
+                pivot_time.values[i, j]
+            )
+    
+    # Create heatmap with custom colormap and annotations
     sns.heatmap(
-        activity_profile, 
+        pivot_pct, 
         cmap=get_bakery_cmap(), 
-        annot=True, 
-        fmt='.1f', 
+        annot=annotations,
+        fmt="",
         linewidths=0.5,
         ax=ax,
         cbar_kws={

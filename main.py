@@ -27,8 +27,7 @@ from src.visualization.activity_vis import (
     plot_hourly_activity_patterns
 )
 from src.visualization.floor_plan_vis import (
-    create_region_heatmap,
-    create_movement_flow
+    create_region_heatmap
 )
 from src.visualization.transition_vis import (
     create_employee_transition_visualization,
@@ -60,7 +59,63 @@ def parse_arguments():
     parser.add_argument('--output', type=str, default='output',
                       help='Directory to save output files')
     
+    # Add step arguments
+    parser.add_argument('--step1', action='store_true', help='Run shift analysis')
+    parser.add_argument('--step2', action='store_true', help='Run activity analysis')
+    parser.add_argument('--step3', action='store_true', help='Run region analysis')
+    parser.add_argument('--step4', action='store_true', help='Run employee region heatmaps')
+    parser.add_argument('--step5', action='store_true', help='Run statistical analysis')
+    parser.add_argument('--employee', type=str, help='Specific employee ID to analyze (e.g., 32-A)')
+    
     return parser.parse_args()
+
+def run_employee_heatmaps(data, floor_plan_data, output_dir, employee_id=None):
+    """
+    Run employee heatmap generation for one or all employees
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Input dataframe
+    floor_plan_data : dict
+        Dictionary containing floor plan data
+    output_dir : Path
+        Output directory
+    employee_id : str, optional
+        If provided, generate heatmap only for this employee
+    """
+    # Create directory for employee region heatmaps
+    employee_heatmaps_dir = ensure_dir_exists(output_dir / 'employee_heatmaps')
+    
+    # Get employees to process
+    if employee_id:
+        if employee_id not in data['id'].unique():
+            print(f"Error: Employee {employee_id} not found in the data")
+            return
+        employees = [employee_id]
+    else:
+        employees = sorted(data['id'].unique())
+    
+    print(f"\nGenerating heatmaps for {len(employees)} employees:")
+    
+    # Generate region heatmap for each employee
+    for emp_id in employees:
+        print(f"  Processing employee {emp_id}...")
+        
+        # Create directory for this employee
+        emp_dir = ensure_dir_exists(employee_heatmaps_dir / emp_id)
+        
+        # Generate region heatmap
+        create_employee_region_heatmap(
+            data,
+            floor_plan_data,
+            emp_id,
+            save_path=emp_dir / f"{emp_id}_region_heatmap.png",
+            top_n=10,  # Display top 10 regions
+            min_transitions=2  # Include transitions with at least 2 occurrences
+        )
+    
+    print(f"  Saved employee region heatmaps to {output_dir}/employee_heatmaps/")
 
 def main():
     """Main function to orchestrate the analysis"""
@@ -68,6 +123,9 @@ def main():
     
     # Parse arguments
     args = parse_arguments()
+    
+    # Check if any step is specified, otherwise run all steps
+    run_all = not (args.step1 or args.step2 or args.step3 or args.step4 or args.step5)
     
     # Check required files
     required_files = {
@@ -95,7 +153,6 @@ def main():
     stats_dir = ensure_dir_exists(output_path / 'statistics')
     floor_plan_dir = ensure_dir_exists(vis_dir / 'floor_plan')
     transitions_dir = ensure_dir_exists(output_path / 'region_transitions')
-    employee_transitions_dir = ensure_dir_exists(transitions_dir / 'employee_shift_transitions')
     
     # Load data
     print(f"\nLoading data from {args.data}...")
@@ -123,131 +180,88 @@ def main():
     print(f"  Total duration: {total_formatted} ({total_hours:.2f} hours)")
     
     # 1. Shift Analysis
-    print("\n" + "=" * 40)
-    print("=== 1. Shift Analysis ===")
-    
-    shift_summary = aggregate_by_shift(data)
-    shift_summary.to_csv(data_dir / 'shift_summary.csv', index=False)
-    print("  Saved shift summary to data/shift_summary.csv")
+    if run_all or args.step1:
+        print("\n" + "=" * 40)
+        print("=== 1. Shift Analysis ===")
+        
+        shift_summary = aggregate_by_shift(data)
+        shift_summary.to_csv(data_dir / 'shift_summary.csv', index=False)
+        print("  Saved shift summary to data/shift_summary.csv")
     
     # 2. Activity Analysis
-    print("\n" + "=" * 40)
-    print("=== 2. Activity Analysis ===")
-    
-    activity_summary = aggregate_by_activity(data)
-    activity_summary.to_csv(data_dir / 'activity_summary.csv', index=False)
-    print("  Saved activity summary to data/activity_summary.csv")
-    
-    plot_activity_distribution(activity_summary, save_path=vis_dir / 'activity_distribution.png')
-    
-    # Activity profile by employee
-    activity_profile = create_activity_profile_by_employee(data)
-    activity_profile.to_csv(data_dir / 'activity_profile_by_employee.csv')
-    print("  Saved activity profile by employee to data/activity_profile_by_employee.csv")
-    
-    plot_activity_distribution_by_employee(activity_profile, save_path=vis_dir / 'activity_distribution_by_employee.png')
+    if run_all or args.step2:
+        print("\n" + "=" * 40)
+        print("=== 2. Activity Analysis ===")
+        
+        activity_summary = aggregate_by_activity(data)
+        activity_summary.to_csv(data_dir / 'activity_summary.csv', index=False)
+        print("  Saved activity summary to data/activity_summary.csv")
+        
+        plot_activity_distribution(activity_summary, save_path=vis_dir / 'activity_distribution.png')
+        
+        # Activity profile by employee - use the modified version that shows formatted times
+        plot_activity_distribution_by_employee(data, save_path=vis_dir / 'activity_distribution_by_employee.png')
+        print("  Saved activity distribution by employee to visualizations/activity_distribution_by_employee.png")
     
     # 3. Region Analysis
-    print("\n" + "=" * 40)
-    print("=== 3. Region Analysis ===")
-    
-    # Aggregate by region
-    region_summary = data.groupby('region')['duration'].sum().reset_index()
-    region_summary['percentage'] = (region_summary['duration'] / region_summary['duration'].sum() * 100).round(1)
-    region_summary['formatted_time'] = region_summary['duration'].apply(format_seconds_to_hms)
-    region_summary = region_summary.sort_values('duration', ascending=False)
-    
-    region_summary.to_csv(data_dir / 'region_summary.csv', index=False)
-    print("  Saved region summary to data/region_summary.csv")
-    
-    # Create floor plan visualizations
-    if floor_plan_data:
-        create_region_heatmap(floor_plan_data, region_summary, save_path=floor_plan_dir / 'region_heatmap.png')
-        create_movement_flow(floor_plan_data, data, save_path=floor_plan_dir / 'movement_flow.png')
-    
-    # 4. Movement Analysis
-    print("\n" + "=" * 40)
-    print("=== 4. Movement Analysis ===")
-    
-    # Calculate employee movement metrics
-    movement_metrics = analyze_movement_patterns(data)
-    
-    # Generate transition visualizations for each employee and shift
-    for employee_id in data['id'].unique():
-        # Create directory for this employee
-        emp_dir = ensure_dir_exists(employee_transitions_dir / employee_id)
+    if run_all or args.step3:
+        print("\n" + "=" * 40)
+        print("=== 3. Region Analysis ===")
         
-        # Get shifts for this employee
-        emp_data = data[data['id'] == employee_id]
-        shifts = emp_data['shift'].unique()
+        # Aggregate by region
+        region_summary = data.groupby('region')['duration'].sum().reset_index()
+        region_summary['percentage'] = (region_summary['duration'] / region_summary['duration'].sum() * 100).round(1)
+        region_summary['formatted_time'] = region_summary['duration'].apply(format_seconds_to_hms)
+        region_summary = region_summary.sort_values('duration', ascending=False)
         
-        # Create visualization for each shift
-        for shift in shifts:
-            create_employee_transition_visualization(
-                data, floor_plan_data, employee_id, shift,
-                save_path=emp_dir / f'transitions_shift_{shift}.png'
-            )
-            
-    # Add employee-specific region heatmaps
-    print("\n" + "=" * 40)
-    print("=== 4.1 Employee Region Heatmaps ===")
-
-    # Create directory for employee region heatmaps
-    employee_heatmaps_dir = ensure_dir_exists(vis_dir / 'employee_heatmaps')
-
-    # Generate region heatmap for each employee
-    for employee_id in data['id'].unique():
-        print(f"  Processing employee {employee_id}...")
+        region_summary.to_csv(data_dir / 'region_summary.csv', index=False)
+        print("  Saved region summary to data/region_summary.csv")
+        
+        # Create floor plan visualizations
+        if floor_plan_data:
+            create_region_heatmap(floor_plan_data, region_summary, save_path=floor_plan_dir / 'region_heatmap.png')
     
-    # Create directory for this employee
-    emp_dir = ensure_dir_exists(employee_heatmaps_dir / employee_id)
-    
-    # Generate region heatmap
-    create_employee_region_heatmap(
-        data,
-        floor_plan_data,
-        employee_id,
-        save_path=emp_dir / f"{employee_id}_region_heatmap.png",
-        top_n=10,  # Display top 10 regions
-        min_transitions=2  # Include transitions with at least 2 occurrences
-    )
-    
-    print(f"  Saved employee region heatmaps to visualizations/employee_heatmaps/")
-
+    # 4. Employee Region Heatmaps
+    if run_all or args.step4:
+        print("\n" + "=" * 40)
+        print("=== 4. Employee Region Heatmaps ===")
+        
+        run_employee_heatmaps(data, floor_plan_data, vis_dir, args.employee)
     
     # 5. Statistical Analysis
-    print("\n" + "=" * 40)
-    print("=== 5. Statistical Analysis ===")
-    
-    employee_analysis = analyze_employee_differences(data)
-    
-    # Save walking patterns
-    if 'walking_patterns' in employee_analysis:
-        employee_analysis['walking_patterns'].to_csv(stats_dir / 'walking_patterns_by_employee.csv', index=False)
-        print("  Saved walking patterns analysis to statistics/walking_patterns_by_employee.csv")
-    
-    # Save handling patterns
-    if 'handling_patterns' in employee_analysis:
-        employee_analysis['handling_patterns'].to_csv(stats_dir / 'handling_patterns_by_employee.csv', index=False)
-        print("  Saved handling patterns analysis to statistics/handling_patterns_by_employee.csv")
-    
-    # Ergonomic Analysis
-    ergonomic_analysis = analyze_ergonomic_patterns(data)
-    
-    if 'position_summary' in ergonomic_analysis:
-        ergonomic_analysis['position_summary'].to_csv(stats_dir / 'handling_position_summary.csv', index=False)
-        print("  Saved handling position summary to statistics/handling_position_summary.csv")
-    
-    if 'employee_position_summary' in ergonomic_analysis:
-        ergonomic_analysis['employee_position_summary'].to_csv(stats_dir / 'employee_handling_positions.csv', index=False)
-        print("  Saved employee handling positions to statistics/employee_handling_positions.csv")
-    
-    # Shift Comparison
-    shift_comparison = compare_shifts(data)
-    
-    if 'shift_metrics' in shift_comparison:
-        shift_comparison['shift_metrics'].to_csv(stats_dir / 'shift_metrics.csv', index=False)
-        print("  Saved shift metrics to statistics/shift_metrics.csv")
+    if run_all or args.step5:
+        print("\n" + "=" * 40)
+        print("=== 5. Statistical Analysis ===")
+        
+        employee_analysis = analyze_employee_differences(data)
+        
+        # Save walking patterns
+        if 'walking_patterns' in employee_analysis:
+            employee_analysis['walking_patterns'].to_csv(stats_dir / 'walking_patterns_by_employee.csv', index=False)
+            print("  Saved walking patterns analysis to statistics/walking_patterns_by_employee.csv")
+        
+        # Save handling patterns
+        if 'handling_patterns' in employee_analysis:
+            employee_analysis['handling_patterns'].to_csv(stats_dir / 'handling_patterns_by_employee.csv', index=False)
+            print("  Saved handling patterns analysis to statistics/handling_patterns_by_employee.csv")
+        
+        # Ergonomic Analysis
+        ergonomic_analysis = analyze_ergonomic_patterns(data)
+        
+        if 'position_summary' in ergonomic_analysis:
+            ergonomic_analysis['position_summary'].to_csv(stats_dir / 'handling_position_summary.csv', index=False)
+            print("  Saved handling position summary to statistics/handling_position_summary.csv")
+        
+        if 'employee_position_summary' in ergonomic_analysis:
+            ergonomic_analysis['employee_position_summary'].to_csv(stats_dir / 'employee_handling_positions.csv', index=False)
+            print("  Saved employee handling positions to statistics/employee_handling_positions.csv")
+        
+        # Shift Comparison
+        shift_comparison = compare_shifts(data)
+        
+        if 'shift_metrics' in shift_comparison:
+            shift_comparison['shift_metrics'].to_csv(stats_dir / 'shift_metrics.csv', index=False)
+            print("  Saved shift metrics to statistics/shift_metrics.csv")
     
     # Calculate total execution time
     end_time = time.time()
@@ -258,13 +272,19 @@ def main():
     print("=" * 40)
     print(f"Execution time: {execution_time:.2f} seconds")
     print(f"\nResults saved to: {output_path}")
+    
+    # Only show outputs for the steps that were run
     print("\nKey outputs to check:")
-    print(f"1. {data_dir}/shift_summary.csv - Time spent during each shift")
-    print(f"2. {vis_dir}/activity_distribution_by_employee.png - Activity profiles by employee")
-    print(f"3. {floor_plan_dir}/region_heatmap.png - Region usage heatmap")
-    print(f"4. {transitions_dir}/employee_shift_transitions/ - Employee movement path visualizations")
-    print(f"5. {vis_dir}/employee_heatmaps/ - Employee region heatmaps")
-    print(f"6. {stats_dir}/shift_metrics.csv - Shift comparison metrics")
+    if run_all or args.step1:
+        print(f"1. {data_dir}/shift_summary.csv - Time spent during each shift")
+    if run_all or args.step2:
+        print(f"2. {vis_dir}/activity_distribution_by_employee.png - Activity profiles by employee")
+    if run_all or args.step3:
+        print(f"3. {floor_plan_dir}/region_heatmap.png - Region usage heatmap")
+    if run_all or args.step4:
+        print(f"4. {vis_dir}/employee_heatmaps/ - Employee region heatmaps")
+    if run_all or args.step5:
+        print(f"5. {stats_dir}/shift_metrics.csv - Shift comparison metrics")
 
 if __name__ == "__main__":
     sys.exit(main())
