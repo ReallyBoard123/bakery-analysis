@@ -12,6 +12,7 @@ from pathlib import Path
 import argparse
 import sys
 
+from src.visualization.employee_region_vis import create_employee_region_heatmap
 from src.utils.file_utils import ensure_dir_exists, check_required_files
 from src.utils.data_utils import (
     load_sensor_data, load_floor_plan_data, 
@@ -186,6 +187,33 @@ def main():
                 data, floor_plan_data, employee_id, shift,
                 save_path=emp_dir / f'transitions_shift_{shift}.png'
             )
+            
+    # Add employee-specific region heatmaps
+    print("\n" + "=" * 40)
+    print("=== 4.1 Employee Region Heatmaps ===")
+
+    # Create directory for employee region heatmaps
+    employee_heatmaps_dir = ensure_dir_exists(vis_dir / 'employee_heatmaps')
+
+    # Generate region heatmap for each employee
+    for employee_id in data['id'].unique():
+        print(f"  Processing employee {employee_id}...")
+    
+    # Create directory for this employee
+    emp_dir = ensure_dir_exists(employee_heatmaps_dir / employee_id)
+    
+    # Generate region heatmap
+    create_employee_region_heatmap(
+        data,
+        floor_plan_data,
+        employee_id,
+        save_path=emp_dir / f"{employee_id}_region_heatmap.png",
+        top_n=10,  # Display top 10 regions
+        min_transitions=2  # Include transitions with at least 2 occurrences
+    )
+    
+    print(f"  Saved employee region heatmaps to visualizations/employee_heatmaps/")
+
     
     # 5. Statistical Analysis
     print("\n" + "=" * 40)
@@ -235,7 +263,8 @@ def main():
     print(f"2. {vis_dir}/activity_distribution_by_employee.png - Activity profiles by employee")
     print(f"3. {floor_plan_dir}/region_heatmap.png - Region usage heatmap")
     print(f"4. {transitions_dir}/employee_shift_transitions/ - Employee movement path visualizations")
-    print(f"5. {stats_dir}/shift_metrics.csv - Shift comparison metrics")
+    print(f"5. {vis_dir}/employee_heatmaps/ - Employee region heatmaps")
+    print(f"6. {stats_dir}/shift_metrics.csv - Shift comparison metrics")
 
 if __name__ == "__main__":
     sys.exit(main())
