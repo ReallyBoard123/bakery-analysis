@@ -601,7 +601,7 @@ def generate_region_ergonomic_report(region_analyses, output_dir):
                            ha='center', va='bottom', fontsize=10)
         
         ax_activity.set_ylabel('Duration (hours)')
-        ax_activity.set_title('Activity Distribution in Region', fontsize=14)
+        ax_activity.set_title('Activity Distribution in Region', fontsize=14, pad=15)
         plt.setp(ax_activity.get_xticklabels(), rotation=45, ha='right')
         
         # Add grid for readability
