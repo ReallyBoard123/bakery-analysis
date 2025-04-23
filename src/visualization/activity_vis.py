@@ -11,7 +11,10 @@ import pandas as pd
 from pathlib import Path
 
 from ..utils.time_utils import format_seconds_to_hms, format_seconds_to_hours
-from .base import get_color_palette, get_bakery_cmap, save_figure, set_visualization_style
+from .base import (save_figure, set_visualization_style, 
+                  get_activity_colors, get_activity_order, 
+                  get_employee_colors, get_bakery_cmap,
+                  add_duration_percentage_label)
 
 def plot_activity_distribution(data, save_path=None, figsize=(12, 7)):
     """
@@ -34,16 +37,34 @@ def plot_activity_distribution(data, save_path=None, figsize=(12, 7)):
     set_visualization_style()
     fig, ax = plt.subplots(figsize=figsize)
     
-    # Convert seconds to hours for better readability
-    hours = data['duration'] / 3600
+    # Get standardized colors and order
+    activity_colors = get_activity_colors()
     
-    # Create bar chart with custom colors
-    bars = ax.bar(data['activity'], hours, color=get_color_palette(len(data)))
+    # Reorder data according to standard activity order if possible
+    activity_order = get_activity_order()
+    sorted_indices = []
+    for activity in activity_order:
+        if activity in data['activity'].values:
+            sorted_indices.append(data[data['activity'] == activity].index[0])
+    
+    # Add any activities not in our standard order
+    for idx in data.index:
+        if idx not in sorted_indices:
+            sorted_indices.append(idx)
+    
+    sorted_data = data.loc[sorted_indices]
+    
+    # Convert seconds to hours for better readability
+    hours = sorted_data['duration'] / 3600
+    
+    # Create bar chart with activity-specific colors
+    colors = [activity_colors.get(activity, '#CCCCCC') for activity in sorted_data['activity']]
+    bars = ax.bar(sorted_data['activity'], hours, color=colors)
     
     # Add percentage and time labels
-    for bar, perc, time in zip(bars, data['percentage'], data['formatted_time']):
-        ax.text(bar.get_x() + bar.get_width()/2., bar.get_height() + 0.5,
-                f'{perc:.1f}%\n({time})', ha='center', va='bottom', fontweight='bold')
+    total_seconds = sorted_data['duration'].sum()
+    for bar, seconds in zip(bars, sorted_data['duration']):
+        add_duration_percentage_label(ax, bar, seconds, total_seconds)
     
     ax.set_title('Time Distribution by Activity', fontsize=16, fontweight='bold')
     ax.set_xlabel('Activity', fontsize=14)
@@ -80,6 +101,9 @@ def plot_activity_distribution_by_employee(data, save_path=None, figsize=(14, 8)
     set_visualization_style()
     fig, ax = plt.subplots(figsize=figsize)
     
+    # Get standardized activity order
+    activity_order = get_activity_order()
+    
     # Calculate total duration by employee
     emp_totals = data.groupby('id')['duration'].sum().reset_index()
     
@@ -108,9 +132,17 @@ def plot_activity_distribution_by_employee(data, save_path=None, figsize=(14, 8)
         values='formatted_time',
         index='id',
         columns='activity',
-        fill_value='00:00:00',
-        aggfunc=lambda x: x.iloc[0] if len(x) > 0 else '00:00:00'  # Just take the first value since they're all the same
+        aggfunc=lambda x: x.iloc[0] if len(x) > 0 else '00:00:00',
+        fill_value='00:00:00'
     )
+    
+    # Reorder columns based on standard activity order
+    ordered_cols = [col for col in activity_order if col in pivot_pct.columns]
+    other_cols = [col for col in pivot_pct.columns if col not in activity_order]
+    ordered_cols.extend(other_cols)
+    
+    pivot_pct = pivot_pct[ordered_cols]
+    pivot_time = pivot_time[ordered_cols]
     
     # Create a custom annotation function to show both percentage and time
     def custom_format(val, time_val):
@@ -177,6 +209,10 @@ def plot_hourly_activity_patterns(hourly_activity, save_path=None, figsize=(16, 
     set_visualization_style()
     fig, ax = plt.subplots(figsize=figsize)
     
+    # Get standardized colors and order
+    activity_colors = get_activity_colors()
+    activity_order = get_activity_order()
+    
     # Create pivot table for visualization
     pivot_data = hourly_activity.pivot_table(
         index='hour',
@@ -185,12 +221,22 @@ def plot_hourly_activity_patterns(hourly_activity, save_path=None, figsize=(16, 
         fill_value=0
     )
     
+    # Reorder columns based on standard activity order
+    ordered_cols = [col for col in activity_order if col in pivot_data.columns]
+    other_cols = [col for col in pivot_data.columns if col not in activity_order]
+    ordered_cols.extend(other_cols)
+    
+    pivot_data = pivot_data[ordered_cols]
+    
+    # Get colors for each activity
+    colors = [activity_colors.get(activity, '#CCCCCC') for activity in pivot_data.columns]
+    
     # Plot stacked area chart
     pivot_data.plot(
         kind='area', 
         stacked=True, 
         alpha=0.7, 
-        color=get_color_palette(len(pivot_data.columns)),
+        color=colors,
         ax=ax
     )
     

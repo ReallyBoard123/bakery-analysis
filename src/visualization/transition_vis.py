@@ -11,7 +11,8 @@ import numpy as np
 from pathlib import Path
 from collections import Counter
 
-from .base import save_figure, set_visualization_style, get_color_palette
+from .base import (save_figure, set_visualization_style, 
+                  get_employee_colors)
 
 def create_employee_transition_visualization(data, floor_plan_data, employee_id, shift=None, 
                                             save_path=None, min_transitions=3, figsize=(16, 12)):
@@ -42,6 +43,10 @@ def create_employee_transition_visualization(data, floor_plan_data, employee_id,
     """
     set_visualization_style()
     fig, ax = plt.subplots(figsize=figsize)
+    
+    # Get employee colors
+    employee_colors = get_employee_colors()
+    emp_color = employee_colors.get(employee_id, '#2D5F91')
     
     # Filter data for the specified employee and shift
     filtered_data = data[(data['id'] == employee_id)]
@@ -96,7 +101,7 @@ def create_employee_transition_visualization(data, floor_plan_data, employee_id,
             circle = plt.Circle(
                 (x_scaled, y_scaled),
                 radius=25,  # Larger radius for better visibility
-                color='#2D5F91',
+                color=emp_color,
                 alpha=0.5  # Semi-transparent
             )
             ax.add_patch(circle)
@@ -218,6 +223,9 @@ def plot_movement_transitions_chart(transition_counts, save_path=None, top_n=10,
     set_visualization_style()
     fig, axes = plt.subplots(len(transition_counts), 1, figsize=figsize, sharex=True)
     
+    # Get employee colors
+    employee_colors = get_employee_colors()
+    
     # Ensure axes is always a list
     if len(transition_counts) == 1:
         axes = [axes]
@@ -229,8 +237,11 @@ def plot_movement_transitions_chart(transition_counts, save_path=None, top_n=10,
         # Create transition labels
         labels = [f"{src} → {dst}" for (src, dst) in top_transitions.index]
         
+        # Get employee-specific color
+        color = employee_colors.get(emp_id, '#2D5F91')
+        
         # Plot horizontal bar chart
-        bars = axes[i].barh(labels, top_transitions.values, color=get_color_palette()[i % len(get_color_palette())])
+        bars = axes[i].barh(labels, top_transitions.values, color=color)
         
         # Add count labels
         for bar in bars:

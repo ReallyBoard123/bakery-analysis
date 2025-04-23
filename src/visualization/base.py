@@ -9,7 +9,36 @@ import seaborn as sns
 from matplotlib.colors import LinearSegmentedColormap
 from pathlib import Path
 
-# Define standard color palette for bakery visualizations
+# Standard activity order
+ACTIVITY_ORDER = ['Walk', 'Stand', 'Handle up', 'Handle center', 'Handle down']
+
+# Standardized colors for activities
+ACTIVITY_COLORS = {
+    'Walk': '#2D5F91',       # Blue
+    'Stand': '#FFAA00',      # Orange
+    'Handle up': '#E8655F',  # Red
+    'Handle center': '#48B7B4', # Teal
+    'Handle down': '#96BEE6' # Light blue
+}
+
+# Standardized colors for departments
+DEPARTMENT_COLORS = {
+    'Bread': '#8C6464',  # Brown
+    'Cake': '#FFD700'    # Gold
+}
+
+# Standardized colors for employees
+EMPLOYEE_COLORS = {
+    '32-A': '#1f77b4',  # Blue
+    '32-C': '#ff7f0e',  # Orange
+    '32-D': '#2ca02c',  # Green
+    '32-E': '#d62728',  # Red
+    '32-F': '#9467bd',  # Purple
+    '32-G': '#8c564b',  # Brown
+    '32-H': '#e377c2'   # Pink
+}
+
+# Legacy color palette for backward compatibility
 BAKERY_COLORS = ['#2D5F91', '#FFAA00', '#E8655F', '#48B7B4', '#96BEE6', '#8C6464']
 
 def set_visualization_style():
@@ -38,7 +67,7 @@ def set_visualization_style():
 
 def get_color_palette(n_colors=None):
     """
-    Get standardized color palette
+    Get standardized color palette (legacy function)
     
     Parameters:
     -----------
@@ -55,6 +84,22 @@ def get_color_palette(n_colors=None):
     else:
         # If more colors needed, cycle through the palette
         return [BAKERY_COLORS[i % len(BAKERY_COLORS)] for i in range(n_colors)]
+
+def get_activity_colors():
+    """Get standardized color mapping for activities"""
+    return ACTIVITY_COLORS
+
+def get_activity_order():
+    """Get standardized order for activities"""
+    return ACTIVITY_ORDER
+
+def get_department_colors():
+    """Get standardized color mapping for departments"""
+    return DEPARTMENT_COLORS
+
+def get_employee_colors():
+    """Get standardized color mapping for employees"""
+    return EMPLOYEE_COLORS
 
 def get_bakery_cmap():
     """

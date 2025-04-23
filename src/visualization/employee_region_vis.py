@@ -13,7 +13,8 @@ from collections import Counter
 import pandas as pd
 import matplotlib.gridspec as gridspec
 
-from .base import save_figure, set_visualization_style
+from .base import (save_figure, set_visualization_style, 
+                  get_employee_colors)
 from ..utils.time_utils import format_seconds_to_hms
 
 def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path=None, 
@@ -44,6 +45,10 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
         The created figure
     """
     set_visualization_style()
+    
+    # Get employee colors
+    employee_colors = get_employee_colors()
+    emp_color = employee_colors.get(employee_id, '#2D5F91')
     
     # Filter data for the specified employee
     employee_data = data[data['id'] == employee_id]
@@ -198,7 +203,7 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
             x, y = region_coordinates[region]
             width, height = region_dimensions[region]
             
-            # Scale coordinates and dimensions
+            # Scale coordinates and dimensions to match image
             x_scaled = x * img_width - (width * img_width / 2)
             y_scaled = y * img_height - (height * img_height / 2)
             width_scaled = width * img_width
@@ -226,9 +231,9 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
                 bbox=dict(facecolor='white', alpha=0.7, edgecolor='none')
             )
     
-    # Add title with total duration
+    # Add title with total duration - use employee color
     ax_map.set_title(f'Region Heatmap: Employee {employee_id} ({dept}) - Total Duration: {total_duration_formatted}', 
-                   fontsize=16, fontweight='bold')
+                   fontsize=16, fontweight='bold', color=emp_color)
     
     # Turn off axis
     ax_map.axis('off')
@@ -267,7 +272,7 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
     
     # Add header formatting
     for i in range(3):
-        table[(0, i)].set_facecolor('#2D5F91')
+        table[(0, i)].set_facecolor(emp_color)  # Use employee color for header
         table[(0, i)].set_text_props(color='white', fontweight='bold')
     
     # Add total row formatting

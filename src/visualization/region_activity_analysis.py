@@ -11,10 +11,13 @@ import pandas as pd
 from pathlib import Path
 import matplotlib.gridspec as gridspec
 
-from .base import save_figure, set_visualization_style, get_color_palette
+from .base import (save_figure, set_visualization_style, 
+                  get_activity_colors, get_activity_order, 
+                  get_employee_colors, get_department_colors)
 from ..utils.time_utils import format_seconds_to_hms
 
-def analyze_activities_by_region(data, department=None, top_n_regions=5, save_path=None, figsize=(16, 12)):
+def analyze_activities_by_region(data, department=None, top_n_regions=5, save_path=None, 
+                               figsize=(16, 12), y_axis_scale='auto'):
     """
     Create a visualization showing top regions and activity breakdowns for employees in a department
     with both percentage and duration labels
@@ -31,6 +34,12 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
         Path to save the visualization
     figsize : tuple, optional
         Figure size (width, height) in inches
+    y_axis_scale : str or float, optional
+        How to scale the y-axis:
+        - 'row': Scale each row (employee) consistently (default)
+        - 'auto': Scale each subplot independently
+        - 'global': Use the same scale for all subplots
+        - float value: Use this specific maximum for all y-axes
     
     Returns:
     --------
@@ -45,17 +54,16 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
     else:
         dept_data = data
     
-    # Define the order of activities for consistent plotting
-    activity_order = ['Handle up', 'Handle center', 'Handle down', 'Walk', 'Stand']
+    # Get standardized activity colors and order
+    activity_colors = get_activity_colors()
+    activity_order = get_activity_order()
     
-    # Define activity colors - using more attractive palette
-    activity_colors = {
-        'Handle up': '#FF6B6B',    # Red
-        'Handle center': '#4ECDC4', # Teal
-        'Handle down': '#FFD166',  # Yellow
-        'Walk': '#06D6A0',         # Green
-        'Stand': '#F7B267'         # Orange
-    }
+    # Get employee colors
+    employee_colors = get_employee_colors()
+    
+    # Get department colors
+    department_colors = get_department_colors()
+    dept_color = department_colors.get(department, '#333333') if department else '#333333'
     
     # Get employees in this department
     employees = sorted(dept_data['id'].unique())
@@ -64,12 +72,63 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
         print(f"No employees found for department: {department}")
         return None
     
+    # Calculate max hours for scaling
+    max_hours_global = 0
+    max_hours_by_employee = {}
+    max_hours_by_subplot = {}
+    
+    # First pass to calculate maximum values for scaling
+    for emp_idx, employee_id in enumerate(employees):
+        emp_data = dept_data[dept_data['id'] == employee_id]
+        
+        # Get top regions for this employee
+        region_durations = emp_data.groupby('region')['duration'].sum().reset_index()
+        region_durations = region_durations.sort_values('duration', ascending=False)
+        top_regions = region_durations.head(top_n_regions)
+        
+        # Calculate maximum activity value for any region for this employee
+        max_hours_emp = 0
+        
+        for reg_idx, (_, region_row) in enumerate(top_regions.iterrows()):
+            region = region_row['region']
+            region_data = emp_data[emp_data['region'] == region]
+            
+            # Find max activity value for this region
+            activity_max = 0
+            for activity in activity_order:
+                activity_data = region_data[region_data['activity'] == activity]
+                activity_hours = activity_data['duration'].sum() / 3600
+                activity_max = max(activity_max, activity_hours)
+            
+            # Save max for this subplot
+            max_hours_by_subplot[(emp_idx, reg_idx)] = activity_max * 1.2  # Add 20% padding
+            
+            # Update employee max
+            max_hours_emp = max(max_hours_emp, activity_max)
+        
+        # Save employee max with padding
+        max_hours_by_employee[employee_id] = max_hours_emp * 1.2  # Add 20% padding
+        
+        # Update global max
+        max_hours_global = max(max_hours_global, max_hours_emp)
+    
+    # Add 20% padding to global max
+    max_hours_global *= 1.2
+    
     # Create figure
-    fig, axes = plt.subplots(nrows=len(employees), ncols=top_n_regions, figsize=figsize, sharey=True)
+    fig, axes = plt.subplots(nrows=len(employees), ncols=top_n_regions, figsize=figsize, sharey=False)  # Explicitly disable sharey
+    
+    # Make sure axes is always a 2D array
+    if len(employees) == 1 and top_n_regions == 1:
+        axes = np.array([[axes]])
+    elif len(employees) == 1:
+        axes = np.array([axes])
+    elif top_n_regions == 1:
+        axes = np.array([[ax] for ax in axes])
     
     # Add a title to the figure
     dept_title = f"{department} Department" if department else "All Departments"
-    fig.suptitle(f"Activity Analysis by Region - {dept_title}", fontsize=20, fontweight='bold', y=0.98)
+    fig.suptitle(f"Activity Analysis by Region - {dept_title}", fontsize=20, fontweight='bold', y=0.98, color=dept_color)
     
     # Process each employee
     for emp_idx, employee_id in enumerate(employees):
@@ -89,11 +148,13 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
         # Get top N regions
         top_regions = region_durations.head(top_n_regions)
         
-        # Employee label at the left side
+        # Employee label at the left side - use employee-specific color
+        emp_color = employee_colors.get(employee_id, '#333333')
         if top_n_regions > 0:
             axes[emp_idx, 0].text(-0.5, 0.5, f"Employee {employee_id}\n{total_hours:.1f} hours", 
                                  ha='center', va='center', fontsize=12, fontweight='bold',
-                                 transform=axes[emp_idx, 0].transAxes)
+                                 transform=axes[emp_idx, 0].transAxes, 
+                                 color=emp_color)
         
         # For each top region
         for reg_idx, (_, region_row) in enumerate(top_regions.iterrows()):
@@ -131,6 +192,16 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
             
             # Create bar plot with activities - showing hours
             bars = ax.bar(activities, hours, color=colors)
+            
+            # Set y-axis limits based on scaling parameter
+            if isinstance(y_axis_scale, (int, float)):
+                ax.set_ylim([0, float(y_axis_scale)])
+            elif y_axis_scale == 'auto':
+                ax.set_ylim([0, max_hours_by_subplot.get((emp_idx, reg_idx), 1)])
+            elif y_axis_scale == 'row':
+                ax.set_ylim([0, max_hours_by_employee[employee_id]])
+            else:  # 'global' or any other value
+                ax.set_ylim([0, max_hours_global])
             
             # Add percentage labels and duration on top of bars
             for bar, activity, duration_seconds in zip(bars, activities, seconds):
