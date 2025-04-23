@@ -13,9 +13,10 @@ from collections import Counter
 
 from ..utils.time_utils import format_seconds_to_hms
 from .base import (save_figure, set_visualization_style, 
-                  get_department_colors, get_employee_colors)
+                  get_department_colors, get_employee_colors,
+                  get_text)
 
-def create_region_heatmap(floor_plan_data, region_summary, save_path=None, min_percentage=1, figsize=(20, 14)):
+def create_region_heatmap(floor_plan_data, region_summary, save_path=None, min_percentage=1, figsize=(20, 14), language='en'):
     """
     Create a heatmap of region usage overlaid on the floor plan
     
@@ -31,6 +32,8 @@ def create_region_heatmap(floor_plan_data, region_summary, save_path=None, min_p
         Minimum percentage of time to include in the visualization
     figsize : tuple, optional
         Figure size (width, height) in inches
+    language : str, optional
+        Language code ('en' or 'de')
     
     Returns:
     --------
@@ -109,10 +112,10 @@ def create_region_heatmap(floor_plan_data, region_summary, save_path=None, min_p
     sm = plt.cm.ScalarMappable(cmap=standard_heatmap, norm=norm)
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax)
-    cbar.set_label('Time Spent')
+    cbar.set_label(get_text('Time Spent', language))
     
     # Set title and turn off axis labels
-    ax.set_title('Heatmap of Time Spent in Different Regions', fontsize=16)
+    ax.set_title(get_text('Heatmap of Time Spent in Different Regions', language), fontsize=16)
     ax.axis('off')
     
     plt.tight_layout()
@@ -123,7 +126,7 @@ def create_region_heatmap(floor_plan_data, region_summary, save_path=None, min_p
     return fig
 
 def create_movement_flow(floor_plan_data, data, save_path=None, min_transitions=10, figsize=(20, 14),
-                         department=None):
+                         department=None, language='en'):
     """
     Create a visualization of movement flows between regions
     
@@ -141,6 +144,8 @@ def create_movement_flow(floor_plan_data, data, save_path=None, min_transitions=
         Figure size (width, height) in inches
     department : str, optional
         Filter to show only transitions for a specific department
+    language : str, optional
+        Language code ('en' or 'de')
     
     Returns:
     --------
@@ -244,19 +249,19 @@ def create_movement_flow(floor_plan_data, data, save_path=None, min_transitions=
     sm = plt.cm.ScalarMappable(cmap=transition_cmap, norm=plt.Normalize(vmin=min_transitions, vmax=max_count))
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax)
-    cbar.set_label('Transition Count')
+    cbar.set_label(get_text('Transition Count', language))
     
     # Add title with department info if applicable
-    title = 'Movement Flows Between Regions'
+    title = get_text('Movement Flows Between Regions', language)
     if department:
-        title += f' - {department} Department'
+        title += ' - ' + get_text('{0} Department', language).format(get_text(department, language))
     ax.set_title(title, fontsize=16, color=dept_color if department else 'black')
     
     # Turn off axis
     ax.axis('off')
     
     # Add note about line styles
-    plt.figtext(0.01, 0.01, "Solid lines: Adjacent regions | Dashed lines: Non-adjacent regions", 
+    plt.figtext(0.01, 0.01, get_text('Solid lines: Adjacent regions | Dashed lines: Non-adjacent regions', language), 
                fontsize=10, ha='left')
     
     plt.tight_layout()

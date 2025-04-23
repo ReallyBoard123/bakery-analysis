@@ -61,6 +61,8 @@ from src.analysis.statistical import (
     compare_shifts
 )
 
+from src.utils.translation_utils import get_translation, translate_format_string
+
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(description='Analyze bakery employee tracking data')
@@ -93,7 +95,7 @@ def parse_arguments():
     
     return parser.parse_args()
 
-def run_employee_heatmaps(data, floor_plan_data, output_dir, employee_id=None):
+def run_employee_heatmaps(data, floor_plan_data, output_dir, employee_id=None, language='en'):
     """
     Run employee heatmap generation for one or all employees
     
@@ -107,6 +109,8 @@ def run_employee_heatmaps(data, floor_plan_data, output_dir, employee_id=None):
         Output directory
     employee_id : str, optional
         If provided, generate heatmap only for this employee
+    language : str, optional
+        Language code ('en' or 'de')
     """
     # Create directory for employee region heatmaps
     employee_heatmaps_dir = ensure_dir_exists(output_dir / 'employee_heatmaps')
@@ -114,17 +118,17 @@ def run_employee_heatmaps(data, floor_plan_data, output_dir, employee_id=None):
     # Get employees to process
     if employee_id:
         if employee_id not in data['id'].unique():
-            print(f"Error: Employee {employee_id} not found in the data")
+            print(get_translation('Error: Employee {0} not found in the data', language).format(employee_id))
             return
         employees = [employee_id]
     else:
         employees = sorted(data['id'].unique())
     
-    print(f"\nGenerating heatmaps for {len(employees)} employees:")
+    print(f"\n{get_translation('Generating heatmaps for {0} employees:', language).format(len(employees))}")
     
     # Generate region heatmap for each employee
     for emp_id in employees:
-        print(f"  Processing employee {emp_id}...")
+        print(f"  {get_translation('Processing employee {0}...', language).format(emp_id)}")
         
         # Create directory for this employee
         emp_dir = ensure_dir_exists(employee_heatmaps_dir / emp_id)
@@ -136,12 +140,13 @@ def run_employee_heatmaps(data, floor_plan_data, output_dir, employee_id=None):
             emp_id,
             save_path=emp_dir / f"{emp_id}_region_heatmap.png",
             top_n=10,  # Display top 10 regions
-            min_transitions=2  # Include transitions with at least 2 occurrences
+            min_transitions=2,  # Include transitions with at least 2 occurrences
+            language=language
         )
     
-    print(f"  Saved employee region heatmaps to {output_dir}/employee_heatmaps/")
+    print(f"  {get_translation('Saved employee region heatmaps to {0}/employee_heatmaps/', language).format(output_dir)}")
 
-def run_ergonomic_analysis(data, output_dir, employee_id=None):
+def run_ergonomic_analysis(data, output_dir, employee_id=None, language='en'):
     """
     Run ergonomic analysis and generate employee and region reports
     
@@ -153,6 +158,8 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None):
         Output directory
     employee_id : str, optional
         If provided, analyze only this employee
+    language : str, optional
+        Language code ('en' or 'de')
     """
     # Create directory for ergonomic analysis results
     ergonomic_dir = ensure_dir_exists(output_dir / 'ergonomic_analysis')
@@ -160,29 +167,29 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None):
     region_reports_dir = ensure_dir_exists(ergonomic_dir / 'region_reports')
     
     print("\n" + "=" * 40)
-    print("=== Ergonomic Analysis ===")
+    print(f"=== {get_translation('Ergonomic Analysis', language)} ===")
     
     # Filter data for specific employee if provided
     if employee_id:
         if employee_id not in data['id'].unique():
-            print(f"Error: Employee {employee_id} not found in the data")
+            print(get_translation('Error: Employee {0} not found in the data', language).format(employee_id))
             return
         filtered_data = data[data['id'] == employee_id]
-        print(f"  Analyzing ergonomics for employee {employee_id}...")
+        print(f"  {get_translation('Analyzing ergonomics for employee {0}...', language).format(employee_id)}")
     else:
         filtered_data = data
-        print(f"  Analyzing ergonomics for all employees...")
+        print(f"  {get_translation('Analyzing ergonomics for all employees...', language)}")
     
     # Calculate ergonomic scores
-    print("  Calculating ergonomic scores...")
+    print(f"  {get_translation('Calculating ergonomic scores...', language)}")
     employee_scores = calculate_ergonomic_score(filtered_data)
     
     # Analyze duration statistics
-    print("  Analyzing activity duration statistics...")
+    print(f"  {get_translation('Analyzing activity duration statistics...', language)}")
     activity_stats = analyze_activity_durations(filtered_data)
     
     # Export duration factor thresholds
-    print("  Exporting duration factor thresholds...")
+    print(f"  {get_translation('Exporting duration factor thresholds...', language)}")
     export_duration_factor_thresholds(filtered_data, ergonomic_dir)
     
     # Convert activity statistics to DataFrame for saving
@@ -204,7 +211,7 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None):
     # Save activity duration statistics
     activity_stats_df = pd.DataFrame(activity_stats_data)
     activity_stats_df.to_csv(ergonomic_dir / 'activity_duration_statistics.csv', index=False)
-    print(f"  Saved activity duration statistics to ergonomic_analysis/activity_duration_statistics.csv")
+    print(f"  {get_translation('Saved activity duration statistics to ergonomic_analysis/activity_duration_statistics.csv', language)}")
     
     # Create summary DataFrame for employees
     summary_data = []
@@ -219,22 +226,22 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None):
     summary_df = pd.DataFrame(summary_data)
     summary_df = summary_df.sort_values('ergonomic_score', ascending=False)
     summary_df.to_csv(ergonomic_dir / 'ergonomic_scores_summary.csv', index=False)
-    print(f"  Saved ergonomic scores summary to ergonomic_analysis/ergonomic_scores_summary.csv")
+    print(f"  {get_translation('Saved ergonomic scores summary to ergonomic_analysis/ergonomic_scores_summary.csv', language)}")
     
     # Generate employee ergonomic reports
-    print("  Generating employee ergonomic reports...")
+    print(f"  {get_translation('Generating employee ergonomic reports...', language)}")
     generate_ergonomic_report(employee_scores, employee_reports_dir)
-    print(f"  Saved employee ergonomic reports to ergonomic_analysis/employee_reports/")
+    print(f"  {get_translation('Saved employee ergonomic reports to ergonomic_analysis/employee_reports/', language)}")
     
     # Analyze region ergonomics (skip if analyzing just one employee)
     if not employee_id:
-        print("  Analyzing region ergonomics...")
+        print(f"  {get_translation('Analyzing region ergonomics...', language)}")
         region_analyses = analyze_region_ergonomics(data, min_percentage=5)
         
         # Generate region ergonomic reports
-        print("  Generating region ergonomic reports...")
+        print(f"  {get_translation('Generating region ergonomic reports...', language)}")
         generate_region_ergonomic_report(region_analyses, region_reports_dir)
-        print(f"  Saved region ergonomic reports to ergonomic_analysis/region_reports/")
+        print(f"  {get_translation('Saved region ergonomic reports to ergonomic_analysis/region_reports/', language)}")
         
         # Save region ergonomic summary
         region_summary = []
@@ -254,17 +261,17 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None):
         region_summary_df = pd.DataFrame(region_summary)
         region_summary_df = region_summary_df.sort_values('ergonomic_score', ascending=False)
         region_summary_df.to_csv(ergonomic_dir / 'region_ergonomic_summary.csv', index=False)
-        print(f"  Saved region ergonomic summary to ergonomic_analysis/region_ergonomic_summary.csv")
+        print(f"  {get_translation('Saved region ergonomic summary to ergonomic_analysis/region_ergonomic_summary.csv', language)}")
     
     # Print scores overview
-    print("\nErgonomic Scores Overview:")
+    print(f"\n{get_translation('Ergonomic Scores Overview:', language)}")
     for _, row in summary_df.iterrows():
         score_color = "good" if row['ergonomic_score'] >= 75 else ("fair" if row['ergonomic_score'] >= 60 else "poor")
-        print(f"  Employee {row['employee_id']}: {row['ergonomic_score']:.1f}/100 ({score_color})")
+        print(f"  {get_translation('Employee {0}: {1:.1f}/100 ({2})', language).format(row['employee_id'], row['ergonomic_score'], score_color)}")
     
-    print("\n=== Ergonomic Analysis Complete ===")
+    print(f"\n=== {get_translation('Ergonomic Analysis Complete', language)} ===")
 
-def run_advanced_analysis(data, output_dir):
+def run_advanced_analysis(data, output_dir, language='en'):
     """
     Run advanced ergonomic and workflow analysis
     
@@ -274,24 +281,26 @@ def run_advanced_analysis(data, output_dir):
         Input dataframe
     output_dir : Path
         Output directory
+    language : str, optional
+        Language code ('en' or 'de')
     """
     # Create directory for analysis results
     analysis_dir = ensure_dir_exists(output_dir / 'advanced_analysis')
     
     print("\n" + "=" * 40)
-    print("=== Advanced Analysis ===")
+    print(f"=== {get_translation('Advanced Analysis', language)} ===")
     
     # 1. Ergonomic Analysis
-    print("\n=== 1. Ergonomic Analysis ===")
-    print("  Calculating ergonomic scores...")
+    print(f"\n=== 1. {get_translation('Ergonomic Analysis', language)} ===")
+    print(f"  {get_translation('Calculating ergonomic scores...', language)}")
     employee_scores = calculate_ergonomic_score(data)
     
     # Analyze duration statistics
-    print("  Analyzing activity duration statistics...")
+    print(f"  {get_translation('Analyzing activity duration statistics...', language)}")
     activity_stats = analyze_activity_durations(data)
     
     # Export duration factor thresholds
-    print("  Exporting duration factor thresholds...")
+    print(f"  {get_translation('Exporting duration factor thresholds...', language)}")
     export_duration_factor_thresholds(data, analysis_dir)
     
     # Convert activity statistics to DataFrame for saving
@@ -313,16 +322,16 @@ def run_advanced_analysis(data, output_dir):
     # Save activity duration statistics
     activity_stats_df = pd.DataFrame(activity_stats_data)
     activity_stats_df.to_csv(analysis_dir / 'activity_duration_statistics.csv', index=False)
-    print(f"  Saved activity duration statistics to advanced_analysis/activity_duration_statistics.csv")
+    print(f"  {get_translation('Saved activity duration statistics to advanced_analysis/activity_duration_statistics.csv', language)}")
     
     # Display key statistics for critical activities
-    print("\nKey Duration Statistics (seconds):")
+    print(f"\n{get_translation('Key Duration Statistics (seconds):', language)}")
     print(f"{'Activity':<12} {'Count':>7} {'Median':>8} {'Mean':>8} {'P25':>6} {'P75':>6} {'P90':>6}")
     print("-" * 60)
     for activity in ['Handle up', 'Handle down', 'Handle center', 'Stand', 'Walk']:
         if activity in activity_stats:
             stats = activity_stats[activity]
-            print(f"{activity:<12} {stats['count']:>7} {stats['median']:>8.1f} {stats['mean']:>8.1f} {stats['p25']:>6.1f} {stats['p75']:>6.1f} {stats['p90']:>6.1f}")
+            print(f"{get_translation(activity, language):<12} {stats['count']:>7} {stats['median']:>8.1f} {stats['mean']:>8.1f} {stats['p25']:>6.1f} {stats['p75']:>6.1f} {stats['p90']:>6.1f}")
     
     # Convert ergonomic scores to DataFrame for saving
     employee_summary = []
@@ -336,16 +345,16 @@ def run_advanced_analysis(data, output_dir):
     
     summary_df = pd.DataFrame(employee_summary)
     summary_df.to_csv(analysis_dir / 'ergonomic_scores_summary.csv', index=False)
-    print(f"  Saved ergonomic scores summary to advanced_analysis/ergonomic_scores_summary.csv")
+    print(f"  {get_translation('Saved ergonomic scores summary to advanced_analysis/ergonomic_scores_summary.csv', language)}")
     
     # Generate ergonomic reports
-    print("  Generating ergonomic reports with visualizations...")
+    print(f"  {get_translation('Generating ergonomic reports with visualizations...', language)}")
     generate_ergonomic_report(employee_scores, analysis_dir / 'ergonomic_reports')
-    print(f"  Saved ergonomic reports to advanced_analysis/ergonomic_reports/")
+    print(f"  {get_translation('Saved ergonomic reports to advanced_analysis/ergonomic_reports/', language)}")
     
     # 2. Workflow Analysis
-    print("\n=== 2. Workflow Analysis ===")
-    print("  Analyzing walking patterns...")
+    print(f"\n=== 2. {get_translation('Workflow Analysis', language)} ===")
+    print(f"  {get_translation('Analyzing walking patterns...', language)}")
     walking_patterns = analyze_walking_patterns(data)
     
     # Convert walking patterns to DataFrame
@@ -362,44 +371,44 @@ def run_advanced_analysis(data, output_dir):
     
     walking_df = pd.DataFrame(walking_data)
     walking_df.to_csv(analysis_dir / 'walking_patterns.csv', index=False)
-    print(f"  Saved walking pattern analysis to advanced_analysis/walking_patterns.csv")
+    print(f"  {get_translation('Saved walking pattern analysis to advanced_analysis/walking_patterns.csv', language)}")
     
     # Productivity rhythm analysis
-    print("  Analyzing productivity rhythms...")
+    print(f"  {get_translation('Analyzing productivity rhythms...', language)}")
     productivity_data = analyze_productivity_rhythm(data)
     productivity_data.to_csv(analysis_dir / 'productivity_rhythm.csv', index=False)
-    print(f"  Saved productivity rhythm analysis to advanced_analysis/productivity_rhythm.csv")
+    print(f"  {get_translation('Saved productivity rhythm analysis to advanced_analysis/productivity_rhythm.csv', language)}")
     
     # Employee work pattern clustering
-    print("  Clustering employee work patterns...")
+    print(f"  {get_translation('Clustering employee work patterns...', language)}")
     clustering_results = cluster_employee_work_patterns(data)
     
     if 'error' not in clustering_results:
         cluster_df = clustering_results['employee_clusters']
         cluster_df.to_csv(analysis_dir / 'employee_clusters.csv', index=False)
-        print(f"  Saved employee clustering results to advanced_analysis/employee_clusters.csv")
+        print(f"  {get_translation('Saved employee clustering results to advanced_analysis/employee_clusters.csv', language)}")
         
         # Save cluster profiles
         with open(analysis_dir / 'cluster_profiles.txt', 'w') as f:
-            f.write("Employee Work Pattern Clusters\n")
+            f.write(f"{get_translation('Employee Work Pattern Clusters', language)}\n")
             f.write("="*80 + "\n\n")
             
             for cluster_id, profile in clustering_results['cluster_profiles'].items():
-                f.write(f"Cluster {cluster_id}:\n")
-                f.write(f"  Employees: {', '.join(profile['employees'])}\n")
-                f.write(f"  Size: {profile['size']} employees\n")
-                f.write("  Characteristics:\n")
+                f.write(f"{get_translation('Cluster', language)} {cluster_id}:\n")
+                f.write(f"  {get_translation('Employees', language)}: {', '.join(profile['employees'])}\n")
+                f.write(f"  {get_translation('Size', language)}: {profile['size']} {get_translation('employees', language)}\n")
+                f.write(f"  {get_translation('Characteristics', language)}:\n")
                 
                 for feature, value in profile['avg_features'].items():
                     f.write(f"    - {feature}: {value:.2f}\n")
                 f.write("\n")
         
-        print(f"  Saved cluster profiles to advanced_analysis/cluster_profiles.txt")
+        print(f"  {get_translation('Saved cluster profiles to advanced_analysis/cluster_profiles.txt', language)}")
     else:
-        print(f"  Error in clustering: {clustering_results['error']}")
+        print(f"  {get_translation('Error in clustering', language)}: {clustering_results['error']}")
     
     # Workflow pattern analysis
-    print("  Identifying workflow patterns...")
+    print(f"  {get_translation('Identifying workflow patterns...', language)}")
     workflow_patterns = identify_workflow_patterns(data)
     
     if 'error' not in workflow_patterns:
@@ -409,37 +418,37 @@ def run_advanced_analysis(data, output_dir):
                 patterns_df = patterns['patterns']
                 if not patterns_df.empty:
                     patterns_df.to_csv(analysis_dir / f'workflow_patterns_{emp_id}.csv', index=False)
-                    print(f"  Saved workflow patterns for {emp_id} to advanced_analysis/workflow_patterns_{emp_id}.csv")
+                    print(f"  {get_translation('Saved workflow patterns for {0} to advanced_analysis/workflow_patterns_{0}.csv', language).format(emp_id)}")
         
         # Generate optimization recommendations
-        print("  Generating optimization recommendations...")
+        print(f"  {get_translation('Generating optimization recommendations...', language)}")
         optimization_opportunities = identify_optimization_opportunities(
             walking_patterns, productivity_data, workflow_patterns)
         
         # Save optimization report
         with open(analysis_dir / 'optimization_recommendations.txt', 'w') as f:
-            f.write("Bakery Workflow Optimization Recommendations\n")
+            f.write(f"{get_translation('Bakery Workflow Optimization Recommendations', language)}\n")
             f.write("="*80 + "\n\n")
             
-            f.write("Movement Optimization:\n")
+            f.write(f"{get_translation('Movement Optimization', language)}:\n")
             for rec in optimization_opportunities['movement_optimization']:
                 f.write(f"  - [{rec['priority']}] {rec['employee']}: {rec['recommendation']}\n")
             f.write("\n")
             
-            f.write("Workflow Optimization:\n")
+            f.write(f"{get_translation('Workflow Optimization', language)}:\n")
             for rec in optimization_opportunities['workflow_optimization']:
                 f.write(f"  - [{rec['priority']}] {rec['employee']}: {rec['recommendation']}\n")
             f.write("\n")
             
-            f.write("Scheduling Recommendations:\n")
+            f.write(f"{get_translation('Scheduling Recommendations', language)}:\n")
             for rec in optimization_opportunities['scheduling_recommendations']:
                 f.write(f"  - [{rec['priority']}] {rec['target']}: {rec['recommendation']}\n")
         
-        print(f"  Saved optimization recommendations to advanced_analysis/optimization_recommendations.txt")
+        print(f"  {get_translation('Saved optimization recommendations to advanced_analysis/optimization_recommendations.txt', language)}")
     else:
-        print(f"  Error in workflow pattern analysis: {workflow_patterns['error']}")
+        print(f"  {get_translation('Error in workflow pattern analysis', language)}: {workflow_patterns['error']}")
     
-    print("\n=== Advanced Analysis Complete ===")
+    print(f"\n=== {get_translation('Advanced Analysis Complete', language)} ===")
 
 def main():
     """Main function to orchestrate the analysis"""
@@ -447,6 +456,9 @@ def main():
     
     # Parse arguments
     args = parse_arguments()
+    
+    # Determine language based on --german flag
+    language = 'de' if args.german else 'en'
     
     # Check if any step is specified, otherwise run all steps
     run_all = not (args.step1 or args.step2 or args.step3 or args.step4 or 
@@ -463,13 +475,13 @@ def main():
     
     files_exist, missing_files = check_required_files(required_files)
     if not files_exist:
-        print("The following required files are missing:")
+        print(get_translation("The following required files are missing:", language))
         for file in missing_files:
             print(f"  - {file}")
         return 1
     
     print("=" * 80)
-    print("=== Bakery Employee Movement Analysis ===")
+    print(f"=== {get_translation('Bakery Employee Movement Analysis', language)} ===")
     print("=" * 80)
     
     # Create output directory structure
@@ -481,7 +493,7 @@ def main():
     transitions_dir = ensure_dir_exists(output_path / 'region_transitions')
     
     # Load data
-    print(f"\nLoading data from {args.data}...")
+    print(f"\n{get_translation('Loading data from {0}...', language).format(args.data)}")
     data = load_sensor_data(args.data)
     
     # Add department classification
@@ -491,63 +503,63 @@ def main():
     floor_plan_data = load_floor_plan_data(args.layout, args.metadata, args.connections)
     
     # Display basic information
-    print(f"\nDataset Information:")
-    print(f"  Records: {len(data):,}")
-    print(f"  Employees: {data['id'].nunique()} - {sorted(data['id'].unique())}")
-    print(f"  Shifts: {data['shift'].nunique()} - {sorted(data['shift'].unique())}")
-    print(f"  Date range: {data['date'].min()} to {data['date'].max()}")
-    print(f"  Regions: {data['region'].nunique()}")
-    print(f"  Activities: {data['activity'].nunique()} - {sorted(data['activity'].unique())}")
+    print(f"\n{get_translation('Dataset Information', language)}:")
+    print(f"  {get_translation('Records', language)}: {len(data):,}")
+    print(f"  {get_translation('Employees', language)}: {data['id'].nunique()} - {sorted(data['id'].unique())}")
+    print(f"  {get_translation('Shifts', language)}: {data['shift'].nunique()} - {sorted(data['shift'].unique())}")
+    print(f"  {get_translation('Date range', language)}: {data['date'].min()} to {data['date'].max()}")
+    print(f"  {get_translation('Regions', language)}: {data['region'].nunique()}")
+    print(f"  {get_translation('Activities', language)}: {data['activity'].nunique()} - {sorted(data['activity'].unique())}")
     
     # Total duration
     total_seconds = data['duration'].sum()
     total_formatted = format_seconds_to_hms(total_seconds)
     total_hours = total_seconds / 3600
-    print(f"  Total duration: {total_formatted} ({total_hours:.2f} hours)")
+    print(f"  {get_translation('Total duration', language)}: {total_formatted} ({total_hours:.2f} {get_translation('hours', language)})")
     
     # If ergonomicsonly is specified, just run the ergonomic analysis and exit
     if args.ergonomicsonly:
-        run_ergonomic_analysis(data, output_path, args.employee)
+        run_ergonomic_analysis(data, output_path, args.employee, language)
         
         # Calculate total execution time
         end_time = time.time()
         execution_time = end_time - start_time
         
         print("\n" + "=" * 40)
-        print("=== Analysis Complete ===")
+        print(f"=== {get_translation('Analysis Complete', language)} ===")
         print("=" * 40)
-        print(f"Execution time: {execution_time:.2f} seconds")
-        print(f"\nResults saved to: {output_path}/ergonomic_analysis/")
+        print(get_translation('Execution time: {0:.2f} seconds', language).format(execution_time))
+        print(f"\n{get_translation('Results saved to: {0}', language).format(f'{output_path}/ergonomic_analysis/')}")
         return 0
     
     # 1. Shift Analysis
     if run_all or args.step1:
         print("\n" + "=" * 40)
-        print("=== 1. Shift Analysis ===")
+        print(f"=== 1. {get_translation('Shift Analysis', language)} ===")
         
         shift_summary = aggregate_by_shift(data)
         shift_summary.to_csv(data_dir / 'shift_summary.csv', index=False)
-        print("  Saved shift summary to data/shift_summary.csv")
+        print(f"  {get_translation('Saved shift summary to data/shift_summary.csv', language)}")
     
     # 2. Activity Analysis
     if run_all or args.step2:
         print("\n" + "=" * 40)
-        print("=== 2. Activity Analysis ===")
+        print(f"=== 2. {get_translation('Activity Analysis', language)} ===")
         
         activity_summary = aggregate_by_activity(data)
         activity_summary.to_csv(data_dir / 'activity_summary.csv', index=False)
-        print("  Saved activity summary to data/activity_summary.csv")
+        print(f"  {get_translation('Saved activity summary to data/activity_summary.csv', language)}")
         
-        plot_activity_distribution(activity_summary, save_path=vis_dir / 'activity_distribution.png')
+        plot_activity_distribution(activity_summary, save_path=vis_dir / 'activity_distribution.png', language=language)
         
         # Activity profile by employee
-        plot_activity_distribution_by_employee(data, save_path=vis_dir / 'activity_distribution_by_employee.png')
-        print("  Saved activity distribution by employee to visualizations/activity_distribution_by_employee.png")
+        plot_activity_distribution_by_employee(data, save_path=vis_dir / 'activity_distribution_by_employee.png', language=language)
+        print(f"  {get_translation('Saved activity distribution by employee to visualizations/activity_distribution_by_employee.png', language)}")
     
     # 3. Region Analysis
     if run_all or args.step3:
         print("\n" + "=" * 40)
-        print("=== 3. Region Analysis ===")
+        print(f"=== 3. {get_translation('Region Analysis', language)} ===")
         
         # Aggregate by region
         region_summary = data.groupby('region')['duration'].sum().reset_index()
@@ -556,95 +568,97 @@ def main():
         region_summary = region_summary.sort_values('duration', ascending=False)
         
         region_summary.to_csv(data_dir / 'region_summary.csv', index=False)
-        print("  Saved region summary to data/region_summary.csv")
+        print(f"  {get_translation('Saved region summary to data/region_summary.csv', language)}")
         
         # Create floor plan visualizations
         if floor_plan_data:
-            create_region_heatmap(floor_plan_data, region_summary, save_path=floor_plan_dir / 'region_heatmap.png')
+            create_region_heatmap(floor_plan_data, region_summary, save_path=floor_plan_dir / 'region_heatmap.png', language=language)
     
     # 4. Employee Region Heatmaps
     if run_all or args.step4:
         print("\n" + "=" * 40)
-        print("=== 4. Employee Region Heatmaps ===")
+        print(f"=== 4. {get_translation('Employee Region Heatmaps', language)} ===")
         
-        run_employee_heatmaps(data, floor_plan_data, vis_dir, args.employee)
+        run_employee_heatmaps(data, floor_plan_data, vis_dir, args.employee, language)
     
     # 5. Statistical Analysis
     if run_all or args.step5:
         print("\n" + "=" * 40)
-        print("=== 5. Statistical Analysis ===")
+        print(f"=== 5. {get_translation('Statistical Analysis', language)} ===")
         
         employee_analysis = analyze_employee_differences(data)
         
         # Save walking patterns
         if 'walking_patterns' in employee_analysis:
             employee_analysis['walking_patterns'].to_csv(stats_dir / 'walking_patterns_by_employee.csv', index=False)
-            print("  Saved walking patterns analysis to statistics/walking_patterns_by_employee.csv")
+            print(f"  {get_translation('Saved walking patterns analysis to statistics/walking_patterns_by_employee.csv', language)}")
         
         # Save handling patterns
         if 'handling_patterns' in employee_analysis:
             employee_analysis['handling_patterns'].to_csv(stats_dir / 'handling_patterns_by_employee.csv', index=False)
-            print("  Saved handling patterns analysis to statistics/handling_patterns_by_employee.csv")
+            print(f"  {get_translation('Saved handling patterns analysis to statistics/handling_patterns_by_employee.csv', language)}")
         
         # Ergonomic Analysis
         ergonomic_analysis = analyze_ergonomic_patterns(data)
         
         if 'position_summary' in ergonomic_analysis:
             ergonomic_analysis['position_summary'].to_csv(stats_dir / 'handling_position_summary.csv', index=False)
-            print("  Saved handling position summary to statistics/handling_position_summary.csv")
+            print(f"  {get_translation('Saved handling position summary to statistics/handling_position_summary.csv', language)}")
         
         if 'employee_position_summary' in ergonomic_analysis:
             ergonomic_analysis['employee_position_summary'].to_csv(stats_dir / 'employee_handling_positions.csv', index=False)
-            print("  Saved employee handling positions to statistics/employee_handling_positions.csv")
+            print(f"  {get_translation('Saved employee handling positions to statistics/employee_handling_positions.csv', language)}")
         
         # Shift Comparison
         shift_comparison = compare_shifts(data)
         
         if 'shift_metrics' in shift_comparison:
             shift_comparison['shift_metrics'].to_csv(stats_dir / 'shift_metrics.csv', index=False)
-            print("  Saved shift metrics to statistics/shift_metrics.csv")
+            print(f"  {get_translation('Saved shift metrics to statistics/shift_metrics.csv', language)}")
     
     # 6. Regional Activity Analysis
     if run_all or args.step6:
         print("\n" + "=" * 40)
-        print("=== 6. Regional Activity Analysis ===")
+        print(f"=== 6. {get_translation('Regional Activity Analysis', language)} ===")
         
         regional_analysis_dir = ensure_dir_exists(vis_dir / 'regional_activity_analysis')
         
         # If department is specified, analyze that department
         if args.department:
             department = args.department
-            print(f"  Analyzing activities by region for {department} department...")
+            print(f"  {get_translation('Analyzing activities by region for {0} department...', language).format(get_translation(department, language))}")
             fig = analyze_activities_by_region(
                 data, 
                 department=department, 
                 top_n_regions=5,
-                save_path=regional_analysis_dir / f"{department.lower()}_regional_activity_analysis.png"
+                save_path=regional_analysis_dir / f"{department.lower()}_regional_activity_analysis.png",
+                language=language
             )
-            print(f"  Saved {department} department regional activity analysis to visualizations/regional_activity_analysis")
+            print(f"  {get_translation('Saved {0} department regional activity analysis to visualizations/regional_activity_analysis', language).format(get_translation(department, language))}")
         # Otherwise, analyze both departments
         else:
             for department in ['Bread', 'Cake']:
-                print(f"  Analyzing activities by region for {department} department...")
+                print(f"  {get_translation('Analyzing activities by region for {0} department...', language).format(get_translation(department, language))}")
                 fig = analyze_activities_by_region(
                     data, 
                     department=department, 
                     top_n_regions=5,
-                    save_path=regional_analysis_dir / f"{department.lower()}_regional_activity_analysis.png"
+                    save_path=regional_analysis_dir / f"{department.lower()}_regional_activity_analysis.png",
+                    language=language
                 )
-            print(f"  Saved regional activity analyses to visualizations/regional_activity_analysis")
+            print(f"  {get_translation('Saved regional activity analyses to visualizations/regional_activity_analysis', language)}")
     
     # 7. Ergonomic Analysis
     if run_all or args.step7:
         print("\n" + "=" * 40)
-        print("=== 7. Ergonomic Analysis ===")
+        print(f"=== 7. {get_translation('Ergonomic Analysis', language)} ===")
         
-        run_ergonomic_analysis(data, output_path, args.employee)
+        run_ergonomic_analysis(data, output_path, args.employee, language)
     
     # 8. Workflow Analysis
     if run_all or args.step8:
         print("\n" + "=" * 40)
-        print("=== 8. Workflow Analysis ===")
+        print(f"=== 8. {get_translation('Workflow Analysis', language)} ===")
         
         workflow_dir = ensure_dir_exists(stats_dir / 'workflow')
         
@@ -664,43 +678,43 @@ def main():
         
         walking_df = pd.DataFrame(walking_data)
         walking_df.to_csv(workflow_dir / 'walking_patterns.csv', index=False)
-        print(f"  Saved walking pattern analysis to statistics/workflow/walking_patterns.csv")
+        print(f"  {get_translation('Saved walking pattern analysis to statistics/workflow/walking_patterns.csv', language)}")
     
     # Run full advanced analysis if analysisonly flag is set
     if args.analysisonly:
-        run_advanced_analysis(data, output_path)
+        run_advanced_analysis(data, output_path, language)
     
     # Calculate total execution time
     end_time = time.time()
     execution_time = end_time - start_time
     
     print("\n" + "=" * 40)
-    print("=== Analysis Complete ===")
+    print(f"=== {get_translation('Analysis Complete', language)} ===")
     print("=" * 40)
-    print(f"Execution time: {execution_time:.2f} seconds")
-    print(f"\nResults saved to: {output_path}")
+    print(get_translation('Execution time: {0:.2f} seconds', language).format(execution_time))
+    print(f"\n{get_translation('Results saved to: {0}', language).format(output_path)}")
     
     # Only show outputs for the steps that were run
-    print("\nKey outputs to check:")
+    print(f"\n{get_translation('Key outputs to check:', language)}")
     if run_all or args.step1:
-        print(f"1. {data_dir}/shift_summary.csv - Time spent during each shift")
+        print(f"1. {data_dir}/shift_summary.csv - {get_translation('Time spent during each shift', language)}")
     if run_all or args.step2:
-        print(f"2. {vis_dir}/activity_distribution_by_employee.png - Activity profiles by employee")
+        print(f"2. {vis_dir}/activity_distribution_by_employee.png - {get_translation('Activity profiles by employee', language)}")
     if run_all or args.step3:
-        print(f"3. {floor_plan_dir}/region_heatmap.png - Region usage heatmap")
+        print(f"3. {floor_plan_dir}/region_heatmap.png - {get_translation('Region usage heatmap', language)}")
     if run_all or args.step4:
-        print(f"4. {vis_dir}/employee_heatmaps/ - Employee region heatmaps")
+        print(f"4. {vis_dir}/employee_heatmaps/ - {get_translation('Employee region heatmaps', language)}")
     if run_all or args.step5:
-        print(f"5. {stats_dir}/shift_metrics.csv - Shift comparison metrics")
+        print(f"5. {stats_dir}/shift_metrics.csv - {get_translation('Shift comparison metrics', language)}")
     if run_all or args.step6:
-        print(f"6. {vis_dir}/regional_activity_analysis/ - Activity breakdown by region per employee")
+        print(f"6. {vis_dir}/regional_activity_analysis/ - {get_translation('Activity breakdown by region per employee', language)}")
     if run_all or args.step7:
-        print(f"7. {output_path}/ergonomic_analysis/reports/ - Ergonomic assessment reports")
+        print(f"7. {output_path}/ergonomic_analysis/reports/ - {get_translation('Ergonomic assessment reports', language)}")
     if args.ergonomicsonly:
-        print(f"• {output_path}/ergonomic_analysis/reports/ - Ergonomic assessment reports")
-        print(f"• {output_path}/ergonomic_analysis/ergonomic_scores_summary.csv - Scores summary")
-        print(f"• {output_path}/ergonomic_analysis/activity_duration_statistics.csv - Activity duration data")
-        print(f"• {output_path}/ergonomic_analysis/duration_factor_thresholds.txt - Threshold details")
+        print(f"• {output_path}/ergonomic_analysis/reports/ - {get_translation('Ergonomic assessment reports', language)}")
+        print(f"• {output_path}/ergonomic_analysis/ergonomic_scores_summary.csv - {get_translation('Scores summary', language)}")
+        print(f"• {output_path}/ergonomic_analysis/activity_duration_statistics.csv - {get_translation('Activity duration data', language)}")
+        print(f"• {output_path}/ergonomic_analysis/duration_factor_thresholds.txt - {get_translation('Threshold details', language)}")
 
 if __name__ == "__main__":
     sys.exit(main())

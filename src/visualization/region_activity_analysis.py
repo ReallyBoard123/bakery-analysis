@@ -13,11 +13,12 @@ import matplotlib.gridspec as gridspec
 
 from .base import (save_figure, set_visualization_style, 
                   get_activity_colors, get_activity_order, 
-                  get_employee_colors, get_department_colors)
+                  get_employee_colors, get_department_colors,
+                  get_text)
 from ..utils.time_utils import format_seconds_to_hms
 
 def analyze_activities_by_region(data, department=None, top_n_regions=5, save_path=None, 
-                               figsize=(16, 12), y_axis_scale='auto'):
+                               figsize=(16, 12), y_axis_scale='auto', language='en'):
     """
     Create a visualization showing top regions and activity breakdowns for employees in a department
     with both percentage and duration labels
@@ -40,6 +41,8 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
         - 'auto': Scale each subplot independently
         - 'global': Use the same scale for all subplots
         - float value: Use this specific maximum for all y-axes
+    language : str, optional
+        Language code ('en' or 'de')
     
     Returns:
     --------
@@ -69,7 +72,7 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
     employees = sorted(dept_data['id'].unique())
     
     if len(employees) == 0:
-        print(f"No employees found for department: {department}")
+        print(get_text('No employees found for department: {0}', language).format(department))
         return None
     
     # Calculate max hours for scaling
@@ -127,8 +130,8 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
         axes = np.array([[ax] for ax in axes])
     
     # Add a title to the figure
-    dept_title = f"{department} Department" if department else "All Departments"
-    fig.suptitle(f"Activity Analysis by Region - {dept_title}", fontsize=20, fontweight='bold', y=0.98, color=dept_color)
+    dept_title = get_text("{0} Department", language).format(get_text(department, language)) if department else get_text("All Departments", language)
+    fig.suptitle(get_text("Activity Analysis by Region - {0}", language).format(dept_title), fontsize=20, fontweight='bold', y=0.98, color=dept_color)
     
     # Process each employee
     for emp_idx, employee_id in enumerate(employees):
@@ -151,7 +154,7 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
         # Employee label at the left side - use employee-specific color
         emp_color = employee_colors.get(employee_id, '#333333')
         if top_n_regions > 0:
-            axes[emp_idx, 0].text(-0.5, 0.5, f"Employee {employee_id}\n{total_hours:.1f} hours", 
+            axes[emp_idx, 0].text(-0.5, 0.5, get_text("Employee {0}\n{1:.1f} hours", language).format(employee_id, total_hours), 
                                  ha='center', va='center', fontsize=12, fontweight='bold',
                                  transform=axes[emp_idx, 0].transAxes, 
                                  color=emp_color)
@@ -218,21 +221,22 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
             
             # Set title with region name and percentage of total time
             region_formatted_time = format_seconds_to_hms(region_duration)
-            ax.set_title(f'{region}\n{region_hours:.1f}h ({region_pct:.1f}% of total)', fontsize=10, pad=15)
+            ax.set_title(f'{region}\n{region_hours:.1f}h ({region_pct:.1f}% {get_text("of total", language)})', fontsize=10, pad=15)
             
             # Remove x-axis labels as we have a legend
             ax.set_xticklabels([])
             
             # Only show y-axis label for first column
             if reg_idx == 0:
-                ax.set_ylabel('Hours')
+                ax.set_ylabel(get_text('Hours', language))
     
     # Adjust layout
     plt.tight_layout(rect=[0, 0, 1, 0.95])  # Make room for title
     
     # Add one legend for the entire figure
     handles = [plt.Rectangle((0, 0), 1, 1, color=activity_colors[activity]) for activity in activity_order]
-    fig.legend(handles, activity_order, loc='lower center', ncol=len(activity_order), 
+    labels = [get_text(activity, language) for activity in activity_order]
+    fig.legend(handles, labels, loc='lower center', ncol=len(activity_order), 
               bbox_to_anchor=(0.5, 0.01), fontsize=10)
     
     # Add extra space at the bottom for the legend

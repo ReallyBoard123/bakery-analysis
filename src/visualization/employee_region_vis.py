@@ -14,11 +14,11 @@ import pandas as pd
 import matplotlib.gridspec as gridspec
 
 from .base import (save_figure, set_visualization_style, 
-                  get_employee_colors)
+                  get_employee_colors, get_text)
 from ..utils.time_utils import format_seconds_to_hms
 
 def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path=None, 
-                                  top_n=10, min_transitions=2, figsize=(20, 14)):
+                                  top_n=10, min_transitions=2, figsize=(20, 14), language='en'):
     """
     Create employee-specific region heatmap with simplified transition lines and region duration table
     
@@ -38,6 +38,8 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
         Minimum number of transitions to include
     figsize : tuple, optional
         Figure size (width, height) in inches
+    language : str, optional
+        Language code ('en' or 'de')
     
     Returns:
     --------
@@ -53,7 +55,7 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
     # Filter data for the specified employee
     employee_data = data[data['id'] == employee_id]
     if employee_data.empty:
-        print(f"No data found for employee {employee_id}")
+        print(get_text('No data found for employee {0}', language).format(employee_id))
         return None
     
     # Extract department info
@@ -232,14 +234,14 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
             )
     
     # Add title with total duration - use employee color
-    ax_map.set_title(f'Region Heatmap: Employee {employee_id} ({dept}) - Total Duration: {total_duration_formatted}', 
+    ax_map.set_title(get_text('Region Heatmap: Employee {0} ({1}) - Total Duration: {2}', language).format(employee_id, get_text(dept, language), total_duration_formatted), 
                    fontsize=16, fontweight='bold', color=emp_color)
     
     # Turn off axis
     ax_map.axis('off')
     
     # Format table data
-    table_data = [['Region', 'Duration', '%']]
+    table_data = [[get_text('Region', language), get_text('Duration', language), '%']]
     
     # Add data rows
     for _, row in top_regions_data.iterrows():
@@ -252,7 +254,7 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
     # Add total row for top regions
     top_regions_percentage = (top_regions_total_duration / total_duration * 100).round(1)
     table_data.append([
-        'Total', 
+        get_text('Total', language), 
         top_regions_total_formatted,
         f"{top_regions_percentage:.1f}%"
     ])
@@ -287,9 +289,9 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
         legend_ranges = []
         for item in line_thickness_legend:
             if item['bucket_min'] == item['bucket_max']:
-                legend_ranges.append(f"{item['bucket_min']} transitions")
+                legend_ranges.append(get_text("{0} transitions", language).format(item['bucket_min']))
             else:
-                legend_ranges.append(f"{item['bucket_min']}-{item['bucket_max']} transitions")
+                legend_ranges.append(get_text("{0}-{1} transitions", language).format(item['bucket_min'], item['bucket_max']))
         
         # Create a colorbar for the transitions
         transition_legend_ax = fig.add_axes([0.1, 0.05, 0.8, 0.02])
@@ -310,10 +312,10 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
         transition_legend_ax.set_xticklabels(legend_ranges)
         
         # Add a title to the legend
-        transition_legend_ax.set_title('Transition Frequency', fontsize=10)
+        transition_legend_ax.set_title(get_text('Transition Frequency', language), fontsize=10)
     
     # Add note about line styles
-    plt.figtext(0.1, 0.01, "Solid lines: Adjacent regions | Dotted lines: Non-adjacent regions", 
+    plt.figtext(0.1, 0.01, get_text('Solid lines: Adjacent regions | Dotted lines: Non-adjacent regions', language), 
               fontsize=10, ha='left')
     
     plt.tight_layout()

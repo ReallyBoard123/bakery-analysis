@@ -12,10 +12,11 @@ from pathlib import Path
 from collections import Counter
 
 from .base import (save_figure, set_visualization_style, 
-                  get_employee_colors)
+                  get_employee_colors, get_text)
 
 def create_employee_transition_visualization(data, floor_plan_data, employee_id, shift=None, 
-                                            save_path=None, min_transitions=3, figsize=(16, 12)):
+                                            save_path=None, min_transitions=3, figsize=(16, 12),
+                                            language='en'):
     """
     Create visualization of region transitions for a specific employee
     
@@ -35,6 +36,8 @@ def create_employee_transition_visualization(data, floor_plan_data, employee_id,
         Minimum number of transitions to include
     figsize : tuple, optional
         Figure size (width, height) in inches
+    language : str, optional
+        Language code ('en' or 'de')
     
     Returns:
     --------
@@ -73,8 +76,8 @@ def create_employee_transition_visualization(data, floor_plan_data, employee_id,
     filtered_transitions = {t: count for t, count in transition_counts.items() if count >= min_transitions}
     
     if not filtered_transitions:
-        print(f"No transitions with at least {min_transitions} occurrences for {employee_id}" + 
-              (f", shift {shift}" if shift is not None else ""))
+        print(get_text(f"No transitions with at least {min_transitions} occurrences for {employee_id}", language) + 
+              (get_text(f", shift {shift}", language) if shift is not None else ""))
         return None
     
     # Display the floor plan
@@ -176,9 +179,9 @@ def create_employee_transition_visualization(data, floor_plan_data, employee_id,
     
     # Add title and department info
     dept = filtered_data['department'].iloc[0] if 'department' in filtered_data.columns else 'Unknown'
-    title = f'Region Transitions: Employee {employee_id} ({dept})'
+    title = get_text('Region Transitions: Employee {0} ({1})', language).format(employee_id, get_text(dept, language))
     if shift is not None:
-        title += f' - Shift {shift}'
+        title += get_text(' - Shift {0}', language).format(shift)
     ax.set_title(title, fontsize=16, fontweight='bold')
     
     # Turn off axis
@@ -187,10 +190,10 @@ def create_employee_transition_visualization(data, floor_plan_data, employee_id,
     # Add legend for transition counts
     sm = plt.cm.ScalarMappable(cmap=transition_cmap, norm=plt.Normalize(vmin=min_transitions, vmax=max_count))
     sm.set_array([])
-    cbar = plt.colorbar(sm, ax=ax, label='Transition Count', orientation='vertical', shrink=0.8)
+    cbar = plt.colorbar(sm, ax=ax, label=get_text('Transition Count', language), orientation='vertical', shrink=0.8)
     
     # Add note about line styles
-    plt.figtext(0.01, 0.01, "Solid lines: Adjacent regions | Dotted lines: Non-adjacent regions", 
+    plt.figtext(0.01, 0.01, get_text('Solid lines: Adjacent regions | Dotted lines: Non-adjacent regions', language), 
                fontsize=10, ha='left')
     
     plt.tight_layout()
@@ -200,7 +203,7 @@ def create_employee_transition_visualization(data, floor_plan_data, employee_id,
     
     return fig
 
-def plot_movement_transitions_chart(transition_counts, save_path=None, top_n=10, figsize=(15, 10)):
+def plot_movement_transitions_chart(transition_counts, save_path=None, top_n=10, figsize=(15, 10), language='en'):
     """
     Plot top movement transitions as horizontal bar charts
     
@@ -214,6 +217,8 @@ def plot_movement_transitions_chart(transition_counts, save_path=None, top_n=10,
         Number of top transitions to show
     figsize : tuple, optional
         Figure size (width, height) in inches
+    language : str, optional
+        Language code ('en' or 'de')
     
     Returns:
     --------
@@ -249,9 +254,10 @@ def plot_movement_transitions_chart(transition_counts, save_path=None, top_n=10,
             axes[i].text(width + 0.5, bar.get_y() + bar.get_height()/2, 
                     f"{width:.0f}", ha='left', va='center', fontweight='bold')
         
-        axes[i].set_title(f'Top {top_n} Movement Transitions - Employee {emp_id}', fontsize=14, fontweight='bold')
-        axes[i].set_xlabel('Number of Transitions', fontsize=12)
-        axes[i].set_ylabel('Transition Path', fontsize=12)
+        axes[i].set_title(get_text('Top {0} Movement Transitions - Employee {1}', language).format(top_n, emp_id), 
+                          fontsize=14, fontweight='bold')
+        axes[i].set_xlabel(get_text('Number of Transitions', language), fontsize=12)
+        axes[i].set_ylabel(get_text('Transition Path', language), fontsize=12)
         axes[i].grid(axis='x', linestyle='--', alpha=0.7)
     
     plt.tight_layout()
