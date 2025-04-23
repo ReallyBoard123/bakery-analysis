@@ -16,7 +16,9 @@ from src.analysis.ergonomics import (
     calculate_ergonomic_score,
     generate_ergonomic_report,
     analyze_activity_durations,
-    export_duration_factor_thresholds
+    export_duration_factor_thresholds,
+    analyze_region_ergonomics,
+    generate_region_ergonomic_report
 )
 from src.analysis.workflow import (
     analyze_walking_patterns,
@@ -140,7 +142,7 @@ def run_employee_heatmaps(data, floor_plan_data, output_dir, employee_id=None):
 
 def run_ergonomic_analysis(data, output_dir, employee_id=None):
     """
-    Run ergonomic analysis and generate reports
+    Run ergonomic analysis and generate employee and region reports
     
     Parameters:
     -----------
@@ -153,6 +155,8 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None):
     """
     # Create directory for ergonomic analysis results
     ergonomic_dir = ensure_dir_exists(output_dir / 'ergonomic_analysis')
+    employee_reports_dir = ensure_dir_exists(ergonomic_dir / 'employee_reports')
+    region_reports_dir = ensure_dir_exists(ergonomic_dir / 'region_reports')
     
     print("\n" + "=" * 40)
     print("=== Ergonomic Analysis ===")
@@ -201,25 +205,7 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None):
     activity_stats_df.to_csv(ergonomic_dir / 'activity_duration_statistics.csv', index=False)
     print(f"  Saved activity duration statistics to ergonomic_analysis/activity_duration_statistics.csv")
     
-    # Display key statistics for critical activities
-    print("\nKey Duration Statistics (seconds):")
-    print(f"{'Activity':<12} {'Count':>7} {'Median':>8} {'Mean':>8} {'P25':>6} {'P75':>6} {'P90':>6}")
-    print("-" * 60)
-    for activity in ['Handle up', 'Handle down', 'Handle center', 'Stand', 'Walk']:
-        if activity in activity_stats:
-            stats = activity_stats[activity]
-            print(f"{activity:<12} {stats['count']:>7} {stats['median']:>8.1f} {stats['mean']:>8.1f} {stats['p25']:>6.1f} {stats['p75']:>6.1f} {stats['p90']:>6.1f}")
-    
-    # Display the threshold values being used
-    if 'Handle up' in activity_stats:
-        handle_up_median = activity_stats['Handle up']['median']
-        print("\nThreshold values for Handle up:")
-        print(f"  Short:  < {handle_up_median * 0.5:.1f}s (factor: 0.5)")
-        print(f"  Medium: < {handle_up_median:.1f}s (factor: 1.0)")
-        print(f"  Long:   < {handle_up_median * 2:.1f}s (factor: 1.5)")
-        print(f"  Very long: >= {handle_up_median * 2:.1f}s (factor: 2.0)")
-    
-    # Create summary DataFrame
+    # Create summary DataFrame for employees
     summary_data = []
     for emp_score in employee_scores:
         summary_data.append({
@@ -234,10 +220,40 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None):
     summary_df.to_csv(ergonomic_dir / 'ergonomic_scores_summary.csv', index=False)
     print(f"  Saved ergonomic scores summary to ergonomic_analysis/ergonomic_scores_summary.csv")
     
-    # Generate ergonomic reports
-    print("  Generating ergonomic reports with visualizations...")
-    generate_ergonomic_report(employee_scores, ergonomic_dir / 'reports')
-    print(f"  Saved ergonomic reports to ergonomic_analysis/reports/")
+    # Generate employee ergonomic reports
+    print("  Generating employee ergonomic reports...")
+    generate_ergonomic_report(employee_scores, employee_reports_dir)
+    print(f"  Saved employee ergonomic reports to ergonomic_analysis/employee_reports/")
+    
+    # Analyze region ergonomics (skip if analyzing just one employee)
+    if not employee_id:
+        print("  Analyzing region ergonomics...")
+        region_analyses = analyze_region_ergonomics(data, min_percentage=5)
+        
+        # Generate region ergonomic reports
+        print("  Generating region ergonomic reports...")
+        generate_region_ergonomic_report(region_analyses, region_reports_dir)
+        print(f"  Saved region ergonomic reports to ergonomic_analysis/region_reports/")
+        
+        # Save region ergonomic summary
+        region_summary = []
+        for region, analysis in region_analyses.items():
+            region_summary.append({
+                'region': region,
+                'ergonomic_score': analysis['ergonomic_score'],
+                'total_hours': analysis['total_duration'] / 3600,
+                'qualified_employees': analysis['qualified_employees'],
+                'handle_up_pct': analysis['activity_distribution'].get('Handle up', {}).get('percentage', 0),
+                'handle_down_pct': analysis['activity_distribution'].get('Handle down', {}).get('percentage', 0),
+                'handle_center_pct': analysis['activity_distribution'].get('Handle center', {}).get('percentage', 0),
+                'stand_pct': analysis['activity_distribution'].get('Stand', {}).get('percentage', 0),
+                'walk_pct': analysis['activity_distribution'].get('Walk', {}).get('percentage', 0)
+            })
+        
+        region_summary_df = pd.DataFrame(region_summary)
+        region_summary_df = region_summary_df.sort_values('ergonomic_score', ascending=False)
+        region_summary_df.to_csv(ergonomic_dir / 'region_ergonomic_summary.csv', index=False)
+        print(f"  Saved region ergonomic summary to ergonomic_analysis/region_ergonomic_summary.csv")
     
     # Print scores overview
     print("\nErgonomic Scores Overview:")

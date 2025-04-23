@@ -1,7 +1,7 @@
 """
 Ergonomics Analysis Module
 
-Analyzes ergonomic patterns and generates employee ergonomic scores with visualizations.
+Analyzes ergonomic patterns and generates employee and region ergonomic scores with visualizations.
 """
 
 import pandas as pd
@@ -16,8 +16,10 @@ from matplotlib.patches import Patch
 # Import visualization utilities from base
 from src.visualization.base import (
     save_figure, set_visualization_style, 
-    get_activity_colors, get_employee_colors
+    get_activity_colors, get_employee_colors,
+    get_activity_order, add_duration_percentage_label
 )
+from src.utils.time_utils import format_seconds_to_hms
 
 def create_region_clusters():
     """Group similar regions into functional clusters"""
@@ -72,7 +74,8 @@ def analyze_activity_durations(data):
 
 def calculate_ergonomic_score(data, min_duration=5):
     """
-    Calculate ergonomic scores out of 100 for each employee
+    Calculate ergonomic scores out of 100 for each employee with revised methodology
+    that more heavily penalizes problematic postures
     
     Parameters:
     -----------
@@ -86,62 +89,21 @@ def calculate_ergonomic_score(data, min_duration=5):
     dict
         Dictionary containing ergonomic scores and detailed factor breakdown
     """
-    # First analyze duration distributions to set data-driven thresholds
-    activity_stats = analyze_activity_durations(data)
-    
     # Filter out very short activities that might be false readings
     filtered_data = data[data['duration'] >= min_duration]
     
     # Starting score is 100, deductions will be made for ergonomic issues
     base_score = 100
     
-    # Define ergonomic deduction factors based on position types
-    position_deductions = {
-        'Handle up': 2.0,     # High deduction for overhead work
-        'Handle down': 1.5,   # Medium-high deduction for low level work 
-        'Handle center': 0.2, # Small deduction for neutral position
-        'Stand': 0.5,         # Medium deduction for static standing
-        'Walk': 0.3           # Small deduction for excessive walking
+    # Define direct percentage-based penalties by posture
+    # These represent deduction points per percentage point of time spent in the posture
+    posture_penalties = {
+        'Handle up': 0.4,     # 40% penalty per % of time (high risk)
+        'Handle down': 0.5,   # 50% penalty per % of time (highest risk)
+        'Handle center': 0.05, # 5% penalty per % of time (low risk)
+        'Stand': 0.15,        # 15% penalty per % of time (medium risk)
+        'Walk': 0.05          # 5% penalty per % of time (low risk)
     }
-    
-    # Get median durations for scaling
-    if 'Handle up' in activity_stats:
-        handle_up_median = activity_stats['Handle up']['median']
-    else:
-        handle_up_median = 60  # Default if no data
-    
-    # Define duration factor scaling based on the data
-    def duration_factor(activity, seconds):
-        if activity == 'Handle up':
-            # Scale based on percentage of median duration
-            if seconds < handle_up_median * 0.5:
-                return 0.5  # Short durations
-            elif seconds < handle_up_median:
-                return 1.0  # Medium durations
-            elif seconds < handle_up_median * 2:
-                return 1.5  # Long durations
-            else:
-                return 2.0  # Very long durations
-        elif activity == 'Stand':
-            # Static standing becomes problematic after longer durations
-            if seconds < 60:
-                return 0.5  # Short standing is less problematic
-            elif seconds < 300:
-                return 1.0  # 1-5 minutes
-            elif seconds < 900:
-                return 1.5  # 5-15 minutes
-            else:
-                return 2.0  # > 15 minutes
-        else:
-            # Default scaling for other activities
-            if seconds < 60:
-                return 0.7
-            elif seconds < 300:
-                return 1.0
-            elif seconds < 600:
-                return 1.3
-            else:
-                return 1.5
     
     # Add region cluster column
     region_mapping = create_region_clusters()
@@ -162,11 +124,12 @@ def calculate_ergonomic_score(data, min_duration=5):
             'final_score': 0,
             'activity_breakdown': {},
             'region_breakdown': {},
-            'duration_factors': {}
         }
         
-        # Calculate deductions by activity
-        for activity in position_deductions.keys():
+        # Calculate direct percentage-based deductions by activity
+        total_deduction = 0
+        
+        for activity in posture_penalties.keys():
             act_data = emp_data[emp_data['activity'] == activity]
             if act_data.empty:
                 continue
@@ -174,35 +137,18 @@ def calculate_ergonomic_score(data, min_duration=5):
             activity_duration = act_data['duration'].sum()
             activity_percentage = (activity_duration / total_duration) * 100
             
-            # Calculate weighted deduction based on duration
-            weighted_deduction = 0
-            for _, row in act_data.iterrows():
-                dur_factor = duration_factor(activity, row['duration'])
-                deduction = position_deductions[activity] * dur_factor
-                weighted_deduction += (row['duration'] / activity_duration) * deduction
-            
-            # Total deduction is proportional to percentage of time in this activity
-            total_deduction = weighted_deduction * (activity_percentage / 100) * 10
-            score_components['deductions'][activity] = total_deduction
+            # Calculate direct percentage-based deduction
+            direct_deduction = activity_percentage * posture_penalties[activity]
+            total_deduction += direct_deduction
+            score_components['deductions'][activity] = direct_deduction
             
             # Store activity breakdown
             score_components['activity_breakdown'][activity] = {
                 'percentage': activity_percentage,
                 'duration': activity_duration,
-                'deduction': total_deduction
+                'deduction': direct_deduction
             }
-            
-            # Store duration factors
-            duration_buckets = act_data.groupby(
-                lambda idx: duration_factor(activity, act_data.loc[idx, 'duration']))['duration'].sum()
-            
-            score_components['duration_factors'][activity] = {
-                str(factor): {
-                    'duration': dur,
-                    'percentage': (dur / activity_duration) * 100
-                } for factor, dur in duration_buckets.items()
-            }
-            
+        
         # Calculate region-specific deductions
         region_deductions = {}
         for region, region_data in emp_data.groupby('region'):
@@ -212,25 +158,22 @@ def calculate_ergonomic_score(data, min_duration=5):
             # Calculate weighted deduction for this region
             region_deduction = 0
             for activity, act_data in region_data.groupby('activity'):
-                if activity not in position_deductions:
+                if activity not in posture_penalties:
                     continue
                     
                 activity_duration = act_data['duration'].sum()
-                for _, row in act_data.iterrows():
-                    dur_factor = duration_factor(activity, row['duration'])
-                    deduction = position_deductions[activity] * dur_factor
-                    region_deduction += (row['duration'] / region_duration) * deduction
+                activity_percentage = (activity_duration / region_duration) * 100
+                region_deduction += activity_percentage * posture_penalties[activity] / 100
             
             # Store region breakdown
-            region_deductions[region] = region_deduction * (region_percentage / 100)
+            region_deductions[region] = region_deduction * region_percentage / 100
             score_components['region_breakdown'][region] = {
                 'percentage': region_percentage,
                 'duration': region_duration,
                 'deduction': region_deductions[region]
             }
         
-        # Calculate final score
-        total_deduction = sum(score_components['deductions'].values())
+        # Calculate final score (capped at minimum of 0)
         final_score = max(base_score - total_deduction, 0)
         score_components['final_score'] = final_score
         
@@ -262,32 +205,33 @@ def export_duration_factor_thresholds(data, output_dir):
     output_path = Path(output_dir)
     
     with open(output_path / 'duration_factor_thresholds.txt', 'w') as f:
-        f.write("Duration Factor Thresholds Used in Ergonomic Analysis\n")
+        f.write("Ergonomic Scoring System\n")
         f.write("=" * 60 + "\n\n")
         
-        # Handle up thresholds
-        if 'Handle up' in activity_stats:
-            handle_up_median = activity_stats['Handle up']['median']
-            f.write("Handle up activity:\n")
-            f.write(f"  Median duration: {handle_up_median:.1f} seconds\n")
-            f.write(f"  Short  (factor 0.5): < {handle_up_median * 0.5:.1f} seconds\n")
-            f.write(f"  Medium (factor 1.0): < {handle_up_median:.1f} seconds\n")
-            f.write(f"  Long   (factor 1.5): < {handle_up_median * 2:.1f} seconds\n")
-            f.write(f"  Very long (factor 2.0): >= {handle_up_median * 2:.1f} seconds\n\n")
+        f.write("Deduction points per percentage of time spent in each posture:\n")
+        f.write("  Handle up: 0.4 points deducted per percentage point of time spent\n")
+        f.write("  Handle down: 0.5 points deducted per percentage point of time spent\n")
+        f.write("  Handle center: 0.05 points deducted per percentage point of time spent\n")
+        f.write("  Stand: 0.15 points deducted per percentage point of time spent\n")
+        f.write("  Walk: 0.05 points deducted per percentage point of time spent\n\n")
         
-        # Stand thresholds
-        f.write("Stand activity:\n")
-        f.write("  Short  (factor 0.5): < 60 seconds\n")
-        f.write("  Medium (factor 1.0): < 300 seconds (5 minutes)\n")
-        f.write("  Long   (factor 1.5): < 900 seconds (15 minutes)\n")
-        f.write("  Very long (factor 2.0): >= 900 seconds\n\n")
+        f.write("Example: An employee spending 50% of time in Handle down position\n")
+        f.write("  would receive a deduction of 50 × 0.5 = 25 points\n\n")
         
-        # Default thresholds
-        f.write("Default scaling for other activities:\n")
-        f.write("  Very short (factor 0.7): < 60 seconds\n")
-        f.write("  Short      (factor 1.0): < 300 seconds (5 minutes)\n")
-        f.write("  Medium     (factor 1.3): < 600 seconds (10 minutes)\n")
-        f.write("  Long       (factor 1.5): >= 600 seconds\n")
+        f.write("Score categories:\n")
+        f.write("  Good: 75-100\n")
+        f.write("  Fair: 60-75\n")
+        f.write("  Poor: 0-60\n\n")
+        
+        f.write("Duration statistics by activity:\n")
+        for activity, stats in activity_stats.items():
+            f.write(f"{activity}:\n")
+            f.write(f"  Count: {stats['count']}\n")
+            f.write(f"  Mean: {stats['mean']:.1f} seconds\n")
+            f.write(f"  Median: {stats['median']:.1f} seconds\n")
+            f.write(f"  25th percentile: {stats['p25']:.1f} seconds\n")
+            f.write(f"  75th percentile: {stats['p75']:.1f} seconds\n")
+            f.write(f"  90th percentile: {stats['p90']:.1f} seconds\n\n")
 
 def generate_ergonomic_report(employee_scores, output_dir):
     """
@@ -311,8 +255,9 @@ def generate_ergonomic_report(employee_scores, output_dir):
     # Apply consistent visualization styling
     set_visualization_style()
     
-    # Get standard activity and employee colors
+    # Get standard activity colors and order
     activity_colors = get_activity_colors()
+    activity_order = get_activity_order()
     employee_colors = get_employee_colors()
     
     # Calculate benchmark values for comparison
@@ -326,9 +271,9 @@ def generate_ergonomic_report(employee_scores, output_dir):
         score = emp_data['final_score']
         components = emp_data['components']
         
-        # Create figure with multiple panels
-        fig = plt.figure(figsize=(15, 12))
-        gs = gridspec.GridSpec(3, 3, figure=fig)
+        # Create figure with 2 panels
+        fig = plt.figure(figsize=(15, 10))
+        gs = gridspec.GridSpec(2, 2, figure=fig, height_ratios=[1, 2])
         
         # 1. Main score display
         ax_main = fig.add_subplot(gs[0, :])
@@ -352,7 +297,7 @@ def generate_ergonomic_report(employee_scores, output_dir):
                     fontsize=16, ha='center', fontweight='bold', color=emp_color)
         
         # 2. Deductions breakdown
-        ax_deduct = fig.add_subplot(gs[1, 0:2])
+        ax_deduct = fig.add_subplot(gs[1, 0])
         
         # Extract deductions
         deductions = components['deductions']
@@ -364,8 +309,8 @@ def generate_ergonomic_report(employee_scores, output_dir):
         activities = [activities[i] for i in sorted_idx]
         values = [values[i] for i in sorted_idx]
         
-        # Color bars based on deduction severity
-        colors = ['green' if v < 3 else ('orange' if v < 7 else 'red') for v in values]
+        # Use activity-specific colors from base visualization
+        colors = [activity_colors.get(act, '#CCCCCC') for act in activities]
         
         # Create horizontal bar chart
         bars = ax_deduct.barh(activities, values, color=colors)
@@ -378,73 +323,56 @@ def generate_ergonomic_report(employee_scores, output_dir):
             ax_deduct.text(width + 0.1, bar.get_y() + bar.get_height()/2, 
                           f"{width:.1f}", va='center')
         
-        # 3. Activity time breakdown
-        ax_activity = fig.add_subplot(gs[1, 2])
+        # 3. Activity time distribution (bar chart)
+        ax_activity = fig.add_subplot(gs[1, 1])
         
-        # Extract activity percentages
+        # Extract activity durations
         act_breakdown = components['activity_breakdown']
-        activities = list(act_breakdown.keys())
-        percentages = [act_breakdown[act]['percentage'] for act in activities]
         
-        # Use standard activity colors
-        colors = [activity_colors.get(act, '#CCCCCC') for act in activities]
+        # Order activities according to standard order
+        ordered_activities = []
+        ordered_durations = []
+        ordered_colors = []
         
-        ax_activity.pie(percentages, labels=activities, autopct='%1.1f%%', 
-                       colors=colors, startangle=90)
-        ax_activity.set_title('Activity Time Distribution', fontsize=14)
+        # First add activities in standard order if they exist
+        for activity in activity_order:
+            if activity in act_breakdown:
+                ordered_activities.append(activity)
+                ordered_durations.append(act_breakdown[activity]['duration'] / 3600)  # Convert to hours
+                ordered_colors.append(activity_colors.get(activity, '#CCCCCC'))
         
-        # 4. Region breakdown
-        ax_region = fig.add_subplot(gs[2, 0])
-        
-        # Extract region data
-        region_breakdown = components['region_breakdown']
-        top_regions = sorted(region_breakdown.items(), 
-                           key=lambda x: x[1]['duration'], reverse=True)[:5]
-        
-        region_names = [r[0] for r in top_regions]
-        region_pcts = [r[1]['percentage'] for r in top_regions]
+        # Then add any remaining activities
+        for activity in act_breakdown.keys():
+            if activity not in ordered_activities and activity in activity_colors:
+                ordered_activities.append(activity)
+                ordered_durations.append(act_breakdown[activity]['duration'] / 3600)  # Convert to hours
+                ordered_colors.append(activity_colors.get(activity, '#CCCCCC'))
         
         # Create bar chart
-        ax_region.bar(region_names, region_pcts)
-        ax_region.set_ylabel('% of Total Time')
-        ax_region.set_title('Top 5 Regions by Time Spent', fontsize=14)
-        plt.setp(ax_region.get_xticklabels(), rotation=45, ha='right')
+        bars = ax_activity.bar(ordered_activities, ordered_durations, color=ordered_colors)
         
-        # 5. Recommendations
-        ax_rec = fig.add_subplot(gs[2, 1:])
-        ax_rec.axis('off')
-        
-        # Generate recommendations based on deductions
-        recommendations = []
-        
-        if 'Handle up' in deductions and deductions['Handle up'] > 5:
-            recommendations.append("• Reduce overhead work or use platforms/tools to minimize arm elevation")
+        # Add percentage and duration labels
+        total_seconds = sum(act_breakdown[act]['duration'] for act in act_breakdown)
+        for i, activity in enumerate(ordered_activities):
+            act_duration = act_breakdown[activity]['duration']
+            act_percentage = act_breakdown[activity]['percentage']
             
-        if 'Handle down' in deductions and deductions['Handle down'] > 5:
-            recommendations.append("• Raise working surfaces to reduce bending and stooping postures")
+            # Format duration
+            formatted_duration = format_seconds_to_hms(act_duration)
             
-        if 'Stand' in deductions and deductions['Stand'] > 3:
-            recommendations.append("• Use anti-fatigue mats and alternate between sitting and standing")
-            
-        if len(recommendations) == 0:
-            recommendations.append("• Current ergonomic practices are good - maintain awareness of posture")
-            recommendations.append("• Take short breaks to stretch throughout shift")
+            # Position label at top of bar
+            bar = bars[i]
+            height = bar.get_height()
+            ax_activity.text(bar.get_x() + bar.get_width()/2., height,
+                           f"{act_percentage:.1f}%\n{formatted_duration}", 
+                           ha='center', va='bottom', fontsize=10)
         
-        ax_rec.text(0.05, 0.95, "Recommendations for Improvement:", fontsize=14, fontweight='bold')
-        y_pos = 0.85
-        for rec in recommendations:
-            ax_rec.text(0.05, y_pos, rec, fontsize=12)
-            y_pos -= 0.1
+        ax_activity.set_ylabel('Duration (hours)')
+        ax_activity.set_title('Activity Time Distribution', fontsize=14)
+        plt.setp(ax_activity.get_xticklabels(), rotation=45, ha='right')
         
-        # Add explanatory text
-        ax_rec.text(0.05, 0.3, 
-                   "Scoring Methodology:", fontsize=12, fontweight='bold')
-        ax_rec.text(0.05, 0.2, 
-                   "Starting from 100 points, deductions are made based on time spent in risky postures.", 
-                   fontsize=10)
-        ax_rec.text(0.05, 0.1, 
-                   "Overhead work (Handle up) and low-level work (Handle down) incur the largest deductions.", 
-                   fontsize=10)
+        # Add grid for readability
+        ax_activity.yaxis.grid(True, linestyle='--', alpha=0.7)
         
         # Add title and save
         plt.suptitle(f"Ergonomic Assessment Report - Employee {emp_id}", fontsize=20, y=0.98)
@@ -452,3 +380,307 @@ def generate_ergonomic_report(employee_scores, output_dir):
         
         # Use the save_figure utility from base
         save_figure(fig, output_path / f"{emp_id}_ergonomic_report.png")
+
+def analyze_region_ergonomics(data, min_percentage=5):
+    """
+    Analyze ergonomic patterns for each region
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Input dataframe with employee tracking data
+    min_percentage : float, optional
+        Minimum percentage of time an employee must spend at a region to be included
+    
+    Returns:
+    --------
+    dict
+        Dictionary containing region-level ergonomic analyses
+    """
+    results = {}
+    
+    # Get all unique regions
+    all_regions = data['region'].unique()
+    
+    # Process each region
+    for region in all_regions:
+        region_data = data[data['region'] == region]
+        
+        if region_data.empty:
+            continue
+            
+        # Total duration in this region across all employees
+        total_region_duration = region_data['duration'].sum()
+        
+        # Identify employees who use this region significantly
+        qualified_employees = []
+        
+        for emp_id, emp_data in data.groupby('id'):
+            # Total time for this employee
+            emp_total_time = emp_data['duration'].sum()
+            
+            # Time in this region
+            region_time = emp_data[emp_data['region'] == region]['duration'].sum()
+            region_percentage = (region_time / emp_total_time * 100) if emp_total_time > 0 else 0
+            
+            # Check if this region is in the employee's top 5
+            emp_top_regions = emp_data.groupby('region')['duration'].sum().sort_values(ascending=False).head(5).index.tolist()
+            
+            if region_percentage >= min_percentage and region in emp_top_regions:
+                qualified_employees.append({
+                    'id': emp_id,
+                    'time': region_time,
+                    'percentage': region_percentage,
+                    'in_top5': region in emp_top_regions
+                })
+        
+        # If no qualified employees, skip this region
+        if not qualified_employees:
+            continue
+        
+        # Calculate activity distribution in this region (considering only qualified employees)
+        qualified_emp_ids = [emp['id'] for emp in qualified_employees]
+        qualified_region_data = region_data[region_data['id'].isin(qualified_emp_ids)]
+        
+        activity_distribution = {}
+        for activity in ['Handle up', 'Handle down', 'Handle center', 'Stand', 'Walk']:
+            act_data = qualified_region_data[qualified_region_data['activity'] == activity]
+            act_duration = act_data['duration'].sum()
+            act_percentage = (act_duration / qualified_region_data['duration'].sum() * 100) if not qualified_region_data.empty else 0
+            
+            activity_distribution[activity] = {
+                'duration': act_duration,
+                'percentage': act_percentage
+            }
+        
+        # Calculate ergonomic score for this region
+        posture_penalties = {
+            'Handle up': 0.4,
+            'Handle down': 0.5, 
+            'Handle center': 0.05,
+            'Stand': 0.15,
+            'Walk': 0.05
+        }
+        
+        deduction = sum(activity_distribution[act]['percentage'] * penalty 
+                        for act, penalty in posture_penalties.items() if act in activity_distribution)
+        ergonomic_score = max(100 - deduction, 0)
+        
+        # Calculate employee contribution to this region
+        employee_contributions = []
+        for emp in qualified_employees:
+            contribution_percentage = (emp['time'] / qualified_region_data['duration'].sum() * 100) if not qualified_region_data.empty else 0
+            
+            # Get activity breakdown for this employee in this region
+            emp_region_data = qualified_region_data[qualified_region_data['id'] == emp['id']]
+            emp_activity_breakdown = {}
+            
+            for activity in ['Handle up', 'Handle down', 'Handle center', 'Stand', 'Walk']:
+                act_data = emp_region_data[emp_region_data['activity'] == activity]
+                act_duration = act_data['duration'].sum()
+                act_percentage = (act_duration / emp_region_data['duration'].sum() * 100) if not emp_region_data.empty else 0
+                
+                emp_activity_breakdown[activity] = {
+                    'duration': act_duration,
+                    'percentage': act_percentage
+                }
+            
+            employee_contributions.append({
+                'id': emp['id'],
+                'time': emp['time'],
+                'contribution_percentage': contribution_percentage,
+                'region_percentage': emp['percentage'],
+                'activity_breakdown': emp_activity_breakdown
+            })
+        
+        # Store results
+        results[region] = {
+            'qualified_employees': len(qualified_employees),
+            'total_duration': qualified_region_data['duration'].sum(),
+            'activity_distribution': activity_distribution,
+            'ergonomic_score': ergonomic_score,
+            'employee_contributions': employee_contributions
+        }
+    
+    return results
+
+def generate_region_ergonomic_report(region_analyses, output_dir):
+    """
+    Generate ergonomic reports for each analyzed region
+    
+    Parameters:
+    -----------
+    region_analyses : dict
+        Dictionary of region analyses from analyze_region_ergonomics
+    output_dir : Path
+        Directory to save the reports
+    
+    Returns:
+    --------
+    None
+    """
+    # Ensure output directory exists
+    output_path = Path(output_dir)
+    output_path.mkdir(exist_ok=True, parents=True)
+    
+    # Apply consistent visualization styling
+    set_visualization_style()
+    
+    # Get standard activity colors and order
+    activity_colors = get_activity_colors()
+    activity_order = get_activity_order()
+    employee_colors = get_employee_colors()
+    
+    # Generate report for each region
+    for region, analysis in region_analyses.items():
+        # Skip regions with no ergonomic score (should not happen but just in case)
+        if 'ergonomic_score' not in analysis:
+            continue
+            
+        score = analysis['ergonomic_score']
+        total_duration = analysis['total_duration']
+        activity_distribution = analysis['activity_distribution']
+        employee_contributions = analysis['employee_contributions']
+        
+        # Create figure with 3 panels
+        fig = plt.figure(figsize=(15, 12))
+        gs = gridspec.GridSpec(3, 2, figure=fig, height_ratios=[1, 1.5, 1.5])
+        
+        # 1. Main score display
+        ax_main = fig.add_subplot(gs[0, :])
+        ax_main.axis('off')
+        
+        # Display the score prominently
+        score_color = 'green' if score >= 75 else ('orange' if score >= 60 else 'red')
+        ax_main.text(0.5, 0.7, f"Region Ergonomic Score: {score:.1f}/100", 
+                    fontsize=28, ha='center', color=score_color, fontweight='bold')
+        
+        # Add region info
+        hours = total_duration / 3600
+        qualified_employees = analysis['qualified_employees']
+        ax_main.text(0.5, 0.4, f"Region: {region} | Hours Analyzed: {hours:.1f} | Employees: {qualified_employees}", 
+                    fontsize=16, ha='center', fontweight='bold')
+        
+        # 2. Activity distribution in this region
+        ax_activity = fig.add_subplot(gs[1, 0])
+        
+        # Order activities according to standard order
+        ordered_activities = []
+        ordered_durations = []
+        ordered_colors = []
+        
+        for activity in activity_order:
+            if activity in activity_distribution:
+                ordered_activities.append(activity)
+                ordered_durations.append(activity_distribution[activity]['duration'] / 3600)  # Convert to hours
+                ordered_colors.append(activity_colors.get(activity, '#CCCCCC'))
+        
+        # Add any remaining activities
+        for activity in activity_distribution.keys():
+            if activity not in ordered_activities and activity in activity_colors:
+                ordered_activities.append(activity)
+                ordered_durations.append(activity_distribution[activity]['duration'] / 3600)  # Convert to hours
+                ordered_colors.append(activity_colors.get(activity, '#CCCCCC'))
+        
+        # Create bar chart
+        bars = ax_activity.bar(ordered_activities, ordered_durations, color=ordered_colors)
+        
+        # Add percentage and duration labels
+        for i, activity in enumerate(ordered_activities):
+            act_duration = activity_distribution[activity]['duration']
+            act_percentage = activity_distribution[activity]['percentage']
+            
+            # Format duration
+            formatted_duration = format_seconds_to_hms(act_duration)
+            
+            # Position label at top of bar
+            bar = bars[i]
+            height = bar.get_height()
+            ax_activity.text(bar.get_x() + bar.get_width()/2., height,
+                           f"{act_percentage:.1f}%\n{formatted_duration}", 
+                           ha='center', va='bottom', fontsize=10)
+        
+        ax_activity.set_ylabel('Duration (hours)')
+        ax_activity.set_title('Activity Distribution in Region', fontsize=14)
+        plt.setp(ax_activity.get_xticklabels(), rotation=45, ha='right')
+        
+        # Add grid for readability
+        ax_activity.yaxis.grid(True, linestyle='--', alpha=0.7)
+        
+        # 3. Employee contributions
+        ax_contrib = fig.add_subplot(gs[1, 1])
+        
+        # Sort employees by contribution percentage
+        sorted_contributions = sorted(employee_contributions, key=lambda x: x['contribution_percentage'], reverse=True)
+        
+        emp_ids = [contrib['id'] for contrib in sorted_contributions]
+        contribution_pcts = [contrib['contribution_percentage'] for contrib in sorted_contributions]
+        
+        # Use employee colors
+        emp_colors = [employee_colors.get(emp_id, '#2D5F91') for emp_id in emp_ids]
+        
+        # Create bar chart
+        bars = ax_contrib.bar(emp_ids, contribution_pcts, color=emp_colors)
+        
+        # Add percentage and time labels
+        for i, contrib in enumerate(sorted_contributions):
+            formatted_duration = format_seconds_to_hms(contrib['time'])
+            
+            # Position label at top of bar
+            bar = bars[i]
+            height = bar.get_height()
+            ax_contrib.text(bar.get_x() + bar.get_width()/2., height,
+                          f"{contrib['contribution_percentage']:.1f}%\n{formatted_duration}", 
+                          ha='center', va='bottom', fontsize=10)
+        
+        ax_contrib.set_ylabel('Contribution (%)')
+        ax_contrib.set_title('Employee Contributions to Region', fontsize=14)
+        plt.setp(ax_contrib.get_xticklabels(), rotation=45, ha='right')
+        
+        # Add grid for readability
+        ax_contrib.yaxis.grid(True, linestyle='--', alpha=0.7)
+        
+        # 4. Employee activity breakdown in this region
+        ax_emp_activity = fig.add_subplot(gs[2, :])
+        
+        # Create stacked bar chart for employee activity breakdown
+        # Only include the top 5 contributing employees if there are more
+        top_contributors = sorted_contributions[:min(5, len(sorted_contributions))]
+        
+        # Prepare data for stacked bar
+        emp_ids = [contrib['id'] for contrib in top_contributors]
+        
+        # Create data for each activity
+        activity_data = {}
+        for activity in activity_order:
+            if activity in activity_distribution:
+                percentages = []
+                for contrib in top_contributors:
+                    if activity in contrib['activity_breakdown']:
+                        percentages.append(contrib['activity_breakdown'][activity]['percentage'])
+                    else:
+                        percentages.append(0)
+                activity_data[activity] = percentages
+        
+        # Create stacked bar
+        bottom = np.zeros(len(emp_ids))
+        for activity in activity_order:
+            if activity in activity_data:
+                ax_emp_activity.bar(emp_ids, activity_data[activity], bottom=bottom, 
+                                   label=activity, color=activity_colors.get(activity, '#CCCCCC'))
+                bottom += activity_data[activity]
+        
+        ax_emp_activity.set_ylabel('Activity Percentage (%)')
+        ax_emp_activity.set_title('Activity Breakdown by Employee in this Region', fontsize=14)
+        ax_emp_activity.legend(loc='upper right')
+        plt.setp(ax_emp_activity.get_xticklabels(), rotation=45, ha='right')
+        
+        # Add grid for readability
+        ax_emp_activity.yaxis.grid(True, linestyle='--', alpha=0.7)
+        
+        # Add title and save
+        plt.suptitle(f"Region Ergonomic Assessment - {region}", fontsize=20, y=0.98)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+        
+        # Use the save_figure utility from base
+        save_figure(fig, output_path / f"{region}_region_report.png")
