@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.colors import LinearSegmentedColormap
 from pathlib import Path
+from ..utils.translation_utils import get_translation
 
 # Standard activity order
 ACTIVITY_ORDER = ['Walk', 'Stand', 'Handle up', 'Handle center', 'Handle down']
@@ -140,10 +141,28 @@ def save_figure(fig, output_path, dpi=300, bbox_inches='tight'):
     # Save the figure
     fig.savefig(output_path, dpi=dpi, bbox_inches=bbox_inches)
     print(f"Saved figure to {output_path}")
-
-def add_duration_percentage_label(ax, bar, value_seconds, total_seconds, min_percentage=5):
+    
+def get_text(text, language='en'):
     """
-    Add a formatted label showing both percentage and duration to a bar
+    Get text with translation for specified language
+    
+    Parameters:
+    -----------
+    text : str
+        Text to translate
+    language : str
+        Language code ('en' or 'de')
+    
+    Returns:
+    --------
+    str
+        Translated text
+    """
+    return get_translation(text, language)
+
+def add_duration_percentage_label(ax, bar, value_seconds, total_seconds, min_percentage=5, language='en'):
+    """
+    Add a formatted label showing both percentage and duration to a bar with translation
 
     Parameters:
     -----------
@@ -157,6 +176,8 @@ def add_duration_percentage_label(ax, bar, value_seconds, total_seconds, min_per
         The total duration in seconds (for percentage calculation)
     min_percentage : float, optional
         Minimum percentage to display label
+    language : str, optional
+        Language code ('en' or 'de')
 
     Returns:
     --------

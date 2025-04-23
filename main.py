@@ -76,6 +76,7 @@ def parse_arguments():
                       help='Directory to save output files')
     parser.add_argument('--analysisonly', action='store_true', help='Run advanced analysis without generating visualizations')
     parser.add_argument('--ergonomicsonly', action='store_true', help='Run only ergonomic analysis and reports')
+    parser.add_argument('--german', action='store_true', help='Generate visualizations and reports in German')
     
     # Add step arguments
     parser.add_argument('--step1', action='store_true', help='Run shift analysis')

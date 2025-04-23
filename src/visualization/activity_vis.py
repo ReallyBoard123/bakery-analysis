@@ -14,9 +14,9 @@ from ..utils.time_utils import format_seconds_to_hms, format_seconds_to_hours
 from .base import (save_figure, set_visualization_style, 
                   get_activity_colors, get_activity_order, 
                   get_employee_colors, get_bakery_cmap,
-                  add_duration_percentage_label)
+                  add_duration_percentage_label, get_text)
 
-def plot_activity_distribution(data, save_path=None, figsize=(12, 7)):
+def plot_activity_distribution(data, save_path=None, figsize=(12, 7), language='en'):
     """
     Plot time distribution by activity
     
@@ -28,6 +28,8 @@ def plot_activity_distribution(data, save_path=None, figsize=(12, 7)):
         Path to save the visualization
     figsize : tuple, optional
         Figure size (width, height) in inches
+    language : str, optional
+        Language code ('en' or 'de')
     
     Returns:
     --------
@@ -52,23 +54,26 @@ def plot_activity_distribution(data, save_path=None, figsize=(12, 7)):
         if idx not in sorted_indices:
             sorted_indices.append(idx)
     
-    sorted_data = data.loc[sorted_indices]
+    sorted_data = data.loc[sorted_indices].copy()
+    
+    # Translate activity labels for display
+    display_activities = sorted_data['activity'].apply(lambda x: get_text(x, language))
     
     # Convert seconds to hours for better readability
     hours = sorted_data['duration'] / 3600
     
     # Create bar chart with activity-specific colors
     colors = [activity_colors.get(activity, '#CCCCCC') for activity in sorted_data['activity']]
-    bars = ax.bar(sorted_data['activity'], hours, color=colors)
+    bars = ax.bar(display_activities, hours, color=colors)
     
     # Add percentage and time labels
     total_seconds = sorted_data['duration'].sum()
     for bar, seconds in zip(bars, sorted_data['duration']):
-        add_duration_percentage_label(ax, bar, seconds, total_seconds)
+        add_duration_percentage_label(ax, bar, seconds, total_seconds, language=language)
     
-    ax.set_title('Time Distribution by Activity', fontsize=16, fontweight='bold')
-    ax.set_xlabel('Activity', fontsize=14)
-    ax.set_ylabel('Duration (hours)', fontsize=14)
+    ax.set_title(get_text('Time Distribution by Activity', language), fontsize=16, fontweight='bold')
+    ax.set_xlabel(get_text('Activity', language), fontsize=14)
+    ax.set_ylabel(get_text('Duration (hours)', language), fontsize=14)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     plt.xticks(fontsize=12, rotation=30, ha='right')
     plt.yticks(fontsize=12)
@@ -80,7 +85,7 @@ def plot_activity_distribution(data, save_path=None, figsize=(12, 7)):
     
     return fig
 
-def plot_activity_distribution_by_employee(data, save_path=None, figsize=(14, 8)):
+def plot_activity_distribution_by_employee(data, save_path=None, figsize=(14, 8), language='en'):
     """
     Plot activity distribution by employee as a heatmap
     
@@ -92,6 +97,8 @@ def plot_activity_distribution_by_employee(data, save_path=None, figsize=(14, 8)
         Path to save the visualization
     figsize : tuple, optional
         Figure size (width, height) in inches
+    language : str, optional
+        Language code ('en' or 'de')
     
     Returns:
     --------
@@ -159,6 +166,9 @@ def plot_activity_distribution_by_employee(data, save_path=None, figsize=(14, 8)
                 pivot_time.values[i, j]
             )
     
+    # Translate column names for display
+    translated_columns = [get_text(col, language) for col in pivot_pct.columns]
+    
     # Create heatmap with custom colormap and annotations
     sns.heatmap(
         pivot_pct, 
@@ -167,15 +177,16 @@ def plot_activity_distribution_by_employee(data, save_path=None, figsize=(14, 8)
         fmt="",
         linewidths=0.5,
         ax=ax,
+        xticklabels=translated_columns,
         cbar_kws={
-            'label': 'Percentage of Employee Time (%)',
+            'label': get_text('Percentage of Employee Time (%)', language),
             'shrink': 0.8
         }
     )
     
-    ax.set_title('Activity Distribution by Employee', fontsize=16, fontweight='bold', pad=20)
-    ax.set_ylabel('Employee ID', fontsize=14)
-    ax.set_xlabel('Activity', fontsize=14)
+    ax.set_title(get_text('Activity Distribution by Employee', language), fontsize=16, fontweight='bold', pad=20)
+    ax.set_ylabel(get_text('Employee ID', language), fontsize=14)
+    ax.set_xlabel(get_text('Activity', language), fontsize=14)
     
     # Rotate x axis labels for better readability
     plt.xticks(rotation=30, ha='right', fontsize=12)
@@ -188,7 +199,7 @@ def plot_activity_distribution_by_employee(data, save_path=None, figsize=(14, 8)
     
     return fig
 
-def plot_hourly_activity_patterns(hourly_activity, save_path=None, figsize=(16, 8)):
+def plot_hourly_activity_patterns(hourly_activity, save_path=None, figsize=(16, 8), language='en'):
     """
     Plot activity patterns by hour of day
     
@@ -200,6 +211,8 @@ def plot_hourly_activity_patterns(hourly_activity, save_path=None, figsize=(16, 
         Path to save the visualization
     figsize : tuple, optional
         Figure size (width, height) in inches
+    language : str, optional
+        Language code ('en' or 'de')
     
     Returns:
     --------
@@ -231,26 +244,34 @@ def plot_hourly_activity_patterns(hourly_activity, save_path=None, figsize=(16, 
     # Get colors for each activity
     colors = [activity_colors.get(activity, '#CCCCCC') for activity in pivot_data.columns]
     
+    # Translate activity labels for legend
+    translated_activities = [get_text(activity, language) for activity in pivot_data.columns]
+    
     # Plot stacked area chart
     pivot_data.plot(
         kind='area', 
         stacked=True, 
         alpha=0.7, 
         color=colors,
-        ax=ax
+        ax=ax,
+        legend=False  # Don't create legend yet
     )
+    
+    # Create custom legend with translated labels
+    handles, original_labels = ax.get_legend_handles_labels()
+    ax.legend(handles, translated_activities, title=get_text('Activity', language), 
+             fontsize=10, title_fontsize=12)
     
     # Convert seconds to hours on y-axis
     current_yticks = ax.get_yticks()
     ax.set_yticklabels([format_seconds_to_hms(tick) for tick in current_yticks])
     
-    ax.set_title('Activity Patterns by Hour of Day', fontsize=16, fontweight='bold')
-    ax.set_xlabel('Hour of Day', fontsize=14)
-    ax.set_ylabel('Duration (hh:mm:ss)', fontsize=14)
+    ax.set_title(get_text('Activity Patterns by Hour of Day', language), fontsize=16, fontweight='bold')
+    ax.set_xlabel(get_text('Hour of Day', language), fontsize=14)
+    ax.set_ylabel(get_text('Duration (hh:mm:ss)', language), fontsize=14)
     ax.grid(axis='both', linestyle='--', alpha=0.7)
     plt.xticks(range(0, 24), fontsize=12)
     plt.yticks(fontsize=12)
-    ax.legend(title='Activity', fontsize=10, title_fontsize=12)
     
     # Add total time labels at the top of each hour
     for hour in range(0, 24):
