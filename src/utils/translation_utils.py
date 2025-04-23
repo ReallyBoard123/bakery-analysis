@@ -160,6 +160,19 @@ TRANSLATIONS = {
         'Activity Time Distribution': 'Aktivitätszeitverteilung',
         'Deduction Points': 'Abzugspunkte',
         'Average: {0:.1f} | Min: {1:.1f} | Max: {2:.1f}': 'Durchschnitt: {0:.1f} | Min: {1:.1f} | Max: {2:.1f}',
+        'Ergonomic Score: {0}/100': 'Ergonomie-Punktzahl: {0}/100',
+        'Employee: {0} | Hours Analyzed: {1:.1f}': 'Mitarbeiter: {0} | Analysierte Stunden: {1:.1f}',
+        'Duration (hours)': 'Dauer (Stunden)',
+        'Employee {0}': 'Mitarbeiter {0}',
+        'Activity Time Distribution': 'Aktivitätszeitverteilung',
+        'Ergonomic Assessment Report - Employee {0}': 'Ergonomischer Bewertungsbericht - Mitarbeiter {0}',
+        'Percentage': 'Prozentsatz',
+        'Duration': 'Dauer',
+        'Deduction': 'Abzug',
+        'pts': 'Pkt.',
+        'of total': 'der Gesamtzeit',
+        'No transitions with at least {0} occurrences for {1}': 'Keine Übergänge mit mindestens {0} Vorkommen für {1}',
+        'Region: {0} | Hours Analyzed: {1:.1f} | Employees: {2}': 'Region: {0} | Analysierte Stunden: {1:.1f} | Mitarbeiter: {2}',
         
         # Region report specific
         'Region Ergonomic Score': 'Ergonomie-Punktzahl für Bereich',
@@ -168,7 +181,7 @@ TRANSLATIONS = {
         'Contribution (%)': 'Beitrag (%)',
         'Activity Breakdown by Employee in this Region': 'Aktivitätsaufschlüsselung nach Mitarbeiter in diesem Bereich',
         'Activity Percentage (%)': 'Aktivitätsprozentsatz (%)',
-        'Region Ergonomic Assessment': 'Ergonomische Bewertung des Bereichs',
+        'Region Ergonomic Assessment': 'Ergonomische Bewertung des Bereichs'
     }
 }
 

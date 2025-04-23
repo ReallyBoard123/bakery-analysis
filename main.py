@@ -190,7 +190,7 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None, language='en'):
     
     # Export duration factor thresholds
     print(f"  {get_translation('Exporting duration factor thresholds...', language)}")
-    export_duration_factor_thresholds(filtered_data, ergonomic_dir)
+    export_duration_factor_thresholds(filtered_data, ergonomic_dir, language)
     
     # Convert activity statistics to DataFrame for saving
     activity_stats_data = []
@@ -230,17 +230,17 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None, language='en'):
     
     # Generate employee ergonomic reports
     print(f"  {get_translation('Generating employee ergonomic reports...', language)}")
-    generate_ergonomic_report(employee_scores, employee_reports_dir)
+    generate_ergonomic_report(employee_scores, employee_reports_dir, language)
     print(f"  {get_translation('Saved employee ergonomic reports to ergonomic_analysis/employee_reports/', language)}")
     
     # Analyze region ergonomics (skip if analyzing just one employee)
     if not employee_id:
         print(f"  {get_translation('Analyzing region ergonomics...', language)}")
-        region_analyses = analyze_region_ergonomics(data, min_percentage=5)
+        region_analyses = analyze_region_ergonomics(data, min_percentage=5, min_duration=2)
         
         # Generate region ergonomic reports
         print(f"  {get_translation('Generating region ergonomic reports...', language)}")
-        generate_region_ergonomic_report(region_analyses, region_reports_dir)
+        generate_region_ergonomic_report(region_analyses, region_reports_dir, language)
         print(f"  {get_translation('Saved region ergonomic reports to ergonomic_analysis/region_reports/', language)}")
         
         # Save region ergonomic summary
@@ -254,8 +254,6 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None, language='en'):
                 'handle_up_pct': analysis['activity_distribution'].get('Handle up', {}).get('percentage', 0),
                 'handle_down_pct': analysis['activity_distribution'].get('Handle down', {}).get('percentage', 0),
                 'handle_center_pct': analysis['activity_distribution'].get('Handle center', {}).get('percentage', 0),
-                'stand_pct': analysis['activity_distribution'].get('Stand', {}).get('percentage', 0),
-                'walk_pct': analysis['activity_distribution'].get('Walk', {}).get('percentage', 0)
             })
         
         region_summary_df = pd.DataFrame(region_summary)
