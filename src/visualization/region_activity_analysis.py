@@ -147,7 +147,7 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
             
             # Set title with region name and percentage of total time
             region_formatted_time = format_seconds_to_hms(region_duration)
-            ax.set_title(f'{region}\n{region_hours:.1f}h ({region_pct:.1f}% of total)\n{region_formatted_time}', fontsize=10)
+            ax.set_title(f'{region}\n{region_hours:.1f}h ({region_pct:.1f}% of total)', fontsize=10, pad=15)
             
             # Remove x-axis labels as we have a legend
             ax.set_xticklabels([])
