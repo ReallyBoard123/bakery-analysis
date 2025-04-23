@@ -17,6 +17,7 @@ from ..utils.time_utils import format_seconds_to_hms
 def analyze_activities_by_region(data, department=None, top_n_regions=5, save_path=None, figsize=(16, 12)):
     """
     Create a visualization showing top regions and activity breakdowns for employees in a department
+    with both percentage and duration labels
     
     Parameters:
     -----------
@@ -106,9 +107,11 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
             
             # Calculate activity breakdown within this region
             activity_durations = {}
+            activity_seconds = {}
             for activity in activity_order:
                 activity_data = region_data[region_data['activity'] == activity]
-                activity_durations[activity] = activity_data['duration'].sum() / 3600  # Convert to hours
+                activity_seconds[activity] = activity_data['duration'].sum()  # Raw seconds for formatting
+                activity_durations[activity] = activity_seconds[activity] / 3600  # Convert to hours for plotting
             
             # Get current axis
             ax = axes[emp_idx, reg_idx]
@@ -117,29 +120,37 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
             activities = []
             hours = []
             colors = []
+            seconds = []
             
             for activity in activity_order:
                 if activity_durations[activity] > 0:
                     activities.append(activity)
                     hours.append(activity_durations[activity])
+                    seconds.append(activity_seconds[activity])
                     colors.append(activity_colors[activity])
             
             # Create bar plot with activities - showing hours
             bars = ax.bar(activities, hours, color=colors)
             
-            # Add percentage labels on top of bars
-            for bar, activity in zip(bars, activities):
+            # Add percentage labels and duration on top of bars
+            for bar, activity, duration_seconds in zip(bars, activities, seconds):
                 height = bar.get_height()
                 percentage = (height / region_hours * 100).round(1) if region_hours > 0 else 0
+                
+                # Format duration as hh:mm:ss
+                formatted_duration = format_seconds_to_hms(duration_seconds)
+                
                 if percentage >= 5:  # Only show labels for significant percentages
                     ax.text(bar.get_x() + bar.get_width()/2., height + 0.05,
-                           f'{percentage:.1f}%', ha='center', va='bottom', fontsize=8)
+                           f'{percentage:.1f}%\n{formatted_duration}', 
+                           ha='center', va='bottom', fontsize=8)
             
             # Set title with region name and percentage of total time
-            ax.set_title(f'{region}\n{region_hours:.1f}h ({region_pct:.1f}% of total)', fontsize=10)
+            region_formatted_time = format_seconds_to_hms(region_duration)
+            ax.set_title(f'{region}\n{region_hours:.1f}h ({region_pct:.1f}% of total)\n{region_formatted_time}', fontsize=10)
             
-            # Format x-axis labels
-            ax.set_xticklabels(activities, rotation=45, ha='right', fontsize=8)
+            # Remove x-axis labels as we have a legend
+            ax.set_xticklabels([])
             
             # Only show y-axis label for first column
             if reg_idx == 0:

@@ -95,3 +95,37 @@ def save_figure(fig, output_path, dpi=300, bbox_inches='tight'):
     # Save the figure
     fig.savefig(output_path, dpi=dpi, bbox_inches=bbox_inches)
     print(f"Saved figure to {output_path}")
+
+def add_duration_percentage_label(ax, bar, value_seconds, total_seconds, min_percentage=5):
+    """
+    Add a formatted label showing both percentage and duration to a bar
+
+    Parameters:
+    -----------
+    ax : matplotlib.axes.Axes
+        The axes to add the label to
+    bar : matplotlib.patches.Rectangle
+        The bar to add the label to
+    value_seconds : float
+        The duration in seconds
+    total_seconds : float
+        The total duration in seconds (for percentage calculation)
+    min_percentage : float, optional
+        Minimum percentage to display label
+
+    Returns:
+    --------
+    None
+    """
+    from ..utils.time_utils import format_seconds_to_hms
+
+    height = bar.get_height()
+    percentage = (value_seconds / total_seconds * 100).round(1) if total_seconds > 0 else 0
+
+    # Format duration as hh:mm:ss
+    formatted_duration = format_seconds_to_hms(value_seconds)
+
+    if percentage >= min_percentage:  # Only show labels for significant percentages
+        ax.text(bar.get_x() + bar.get_width() / 2., height + 0.05,
+                f'{percentage:.1f}%\n{formatted_duration}',
+                ha='center', va='bottom', fontsize=8)
