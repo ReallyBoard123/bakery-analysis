@@ -13,6 +13,7 @@ import argparse
 import sys
 
 from src.visualization.employee_region_vis import create_employee_region_heatmap
+from src.visualization.region_activity_analysis import analyze_activities_by_region
 from src.utils.file_utils import ensure_dir_exists, check_required_files
 from src.utils.data_utils import (
     load_sensor_data, load_floor_plan_data, 
@@ -65,7 +66,10 @@ def parse_arguments():
     parser.add_argument('--step3', action='store_true', help='Run region analysis')
     parser.add_argument('--step4', action='store_true', help='Run employee region heatmaps')
     parser.add_argument('--step5', action='store_true', help='Run statistical analysis')
+    parser.add_argument('--step6', action='store_true', help='Run regional activity analysis')
     parser.add_argument('--employee', type=str, help='Specific employee ID to analyze (e.g., 32-A)')
+    parser.add_argument('--department', type=str, choices=['Bread', 'Cake'], 
+                      help='Department to analyze (Bread or Cake)')
     
     return parser.parse_args()
 
@@ -125,7 +129,7 @@ def main():
     args = parse_arguments()
     
     # Check if any step is specified, otherwise run all steps
-    run_all = not (args.step1 or args.step2 or args.step3 or args.step4 or args.step5)
+    run_all = not (args.step1 or args.step2 or args.step3 or args.step4 or args.step5 or args.step6)
     
     # Check required files
     required_files = {
@@ -199,7 +203,7 @@ def main():
         
         plot_activity_distribution(activity_summary, save_path=vis_dir / 'activity_distribution.png')
         
-        # Activity profile by employee - use the modified version that shows formatted times
+        # Activity profile by employee
         plot_activity_distribution_by_employee(data, save_path=vis_dir / 'activity_distribution_by_employee.png')
         print("  Saved activity distribution by employee to visualizations/activity_distribution_by_employee.png")
     
@@ -263,6 +267,36 @@ def main():
             shift_comparison['shift_metrics'].to_csv(stats_dir / 'shift_metrics.csv', index=False)
             print("  Saved shift metrics to statistics/shift_metrics.csv")
     
+    # 6. Regional Activity Analysis
+    if run_all or args.step6:
+        print("\n" + "=" * 40)
+        print("=== 6. Regional Activity Analysis ===")
+        
+        regional_analysis_dir = ensure_dir_exists(vis_dir / 'regional_activity_analysis')
+        
+        # If department is specified, analyze that department
+        if args.department:
+            department = args.department
+            print(f"  Analyzing activities by region for {department} department...")
+            fig = analyze_activities_by_region(
+                data, 
+                department=department, 
+                top_n_regions=5,
+                save_path=regional_analysis_dir / f"{department.lower()}_regional_activity_analysis.png"
+            )
+            print(f"  Saved {department} department regional activity analysis to visualizations/regional_activity_analysis")
+        # Otherwise, analyze both departments
+        else:
+            for department in ['Bread', 'Cake']:
+                print(f"  Analyzing activities by region for {department} department...")
+                fig = analyze_activities_by_region(
+                    data, 
+                    department=department, 
+                    top_n_regions=5,
+                    save_path=regional_analysis_dir / f"{department.lower()}_regional_activity_analysis.png"
+                )
+            print(f"  Saved regional activity analyses to visualizations/regional_activity_analysis")
+    
     # Calculate total execution time
     end_time = time.time()
     execution_time = end_time - start_time
@@ -285,6 +319,8 @@ def main():
         print(f"4. {vis_dir}/employee_heatmaps/ - Employee region heatmaps")
     if run_all or args.step5:
         print(f"5. {stats_dir}/shift_metrics.csv - Shift comparison metrics")
+    if run_all or args.step6:
+        print(f"6. {vis_dir}/regional_activity_analysis/ - Activity breakdown by region per employee")
 
 if __name__ == "__main__":
     sys.exit(main())
