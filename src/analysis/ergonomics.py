@@ -26,7 +26,7 @@ from src.visualization.base import (
     get_text
 )
 from src.utils.time_utils import format_seconds_to_hms
-from utils.file_utils import ensure_dir_exists
+from src.utils.file_utils import ensure_dir_exists
 
 def create_region_categories():
     """Group similar regions into functional clusters for handling analysis"""
