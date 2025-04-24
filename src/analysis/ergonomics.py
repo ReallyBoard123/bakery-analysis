@@ -26,6 +26,17 @@ from src.visualization.base import (
     get_text
 )
 from src.utils.time_utils import format_seconds_to_hms
+from utils.file_utils import ensure_dir_exists
+
+def create_region_categories():
+    """Group similar regions into functional clusters for handling analysis"""
+    return {
+        'Bread Workstation': ['3_Brotstation', '4_Brotstation', '1_Brotstation', '2_Brotstation'],
+        'Cake Workstation': ['1_Konditorei_station', '2_Konditorei_station', '3_Konditorei_station', 'konditorei_deco'],
+        'Bread Baking': ['bereitstellen_prepared_goods', 'Etagenofen', 'Rollenhandtuchspend', 'Gärraum'],
+        'Cake Baking': ['Fettbacken', 'cookies_packing_hand'],
+        'Common Regions': ['brotkisten_regal', 'production_plan', 'leere_Kisten', '1_corridor']
+    }
 
 def create_region_clusters():
     """Group similar regions into functional clusters"""
@@ -77,6 +88,601 @@ def analyze_activity_durations(data):
         }
     
     return activity_stats
+
+def analyze_handling_time_in_top_regions(data, output_dir=None, language='en'):
+    """
+    Analyze handling time in top regions per employee
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Input dataframe with employee tracking data
+    output_dir : Path, optional
+        Directory to save output files
+    language : str, optional
+        Language code ('en' or 'de')
+    
+    Returns:
+    --------
+    tuple
+        (pivot_table, employee_top_regions, results_df)
+    """
+    # List all employees
+    employees = sorted(data['id'].unique())
+    print(f"\n{get_text('Analyzing data for {0} employees:', language).format(len(employees))} {', '.join(employees)}")
+    
+    # Handling activity categories
+    handling_categories = ['Handle up', 'Handle center', 'Handle down']
+    
+    # Find top 5 regions for each employee
+    employee_top_regions = {}
+    for employee_id in employees:
+        emp_data = data[data['id'] == employee_id]
+        region_times = emp_data.groupby('region')['duration'].sum().reset_index()
+        top_regions = region_times.sort_values('duration', ascending=False).head(5)['region'].tolist()
+        employee_top_regions[employee_id] = top_regions
+        print(f"  {get_text('Employee {0} top 5 regions:', language).format(employee_id)} {', '.join(top_regions)}")
+    
+    # Get all unique top regions
+    all_top_regions = set()
+    for regions in employee_top_regions.values():
+        all_top_regions.update(regions)
+    all_top_regions = sorted(all_top_regions)
+    
+    print(f"\n{get_text('Identified {0} unique top regions across all employees', language).format(len(all_top_regions))}")
+    
+    # Calculate handling time for each region and category
+    results = []
+    for region in all_top_regions:
+        region_data = data[(data['region'] == region) & (data['activity'].isin(handling_categories))]
+        
+        for category in handling_categories:
+            category_data = region_data[region_data['activity'] == category]
+            duration_seconds = category_data['duration'].sum()
+            
+            results.append({
+                'region': region,
+                'category': category,
+                'duration_seconds': duration_seconds,
+                'employees': [emp for emp, regions in employee_top_regions.items() if region in regions]
+            })
+    
+    # Create pivot table
+    results_df = pd.DataFrame(results)
+    
+    # Create pivot only if there's data
+    if not results_df.empty:
+        pivot_table = results_df.pivot_table(
+            index='region',
+            columns='category',
+            values='duration_seconds',
+            fill_value=0
+        )
+        
+        # Add total column
+        for category in handling_categories:
+            if category not in pivot_table.columns:
+                pivot_table[category] = 0
+        pivot_table['Total'] = pivot_table.sum(axis=1)
+        
+        # Sort by total handling time
+        pivot_table = pivot_table.sort_values('Total', ascending=False)
+        
+        # Format as hours:minutes:seconds
+        formatted_pivot = pivot_table.copy()
+        for col in formatted_pivot.columns:
+            formatted_pivot[col] = formatted_pivot[col].apply(format_seconds_to_hms)
+        
+        # Add employee column
+        region_employees = {}
+        for region in pivot_table.index:
+            region_employees[region] = ", ".join(
+                [emp for emp, regions in employee_top_regions.items() if region in regions]
+            )
+        formatted_pivot['Employees'] = pd.Series(region_employees)
+        
+        # Save to CSV if output_dir is provided
+        if output_dir:
+            output_path = ensure_dir_exists(output_dir / 'handling_analysis')
+            formatted_pivot.to_csv(output_path / 'handling_time_by_region.csv')
+            print(f"  {get_text('Saved handling time analysis to {0}/handling_time_by_region.csv', language).format(output_path)}")
+        
+        # Calculate and display totals by category
+        print(f"\n{get_text('Total Handling Time by Category (across all top regions):', language)}")
+        print("-" * 50)
+        
+        grand_total = 0
+        for category in handling_categories:
+            if category in pivot_table.columns:
+                duration = pivot_table[category].sum()
+                grand_total += duration
+                print(f"{get_text(category, language)}: {format_seconds_to_hms(duration)}")
+        
+        print("-" * 50)
+        print(f"{get_text('Grand Total:', language)} {format_seconds_to_hms(grand_total)}")
+    else:
+        pivot_table = pd.DataFrame()
+        print(f"{get_text('No handling data found', language)}")
+    
+    return pivot_table, employee_top_regions, results_df
+
+def analyze_workstation_categories(data, output_dir=None, language='en'):
+    """
+    Analyze handling data by workstation category
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Input dataframe with employee tracking data
+    output_dir : Path, optional
+        Directory to save output files
+    language : str, optional
+        Language code ('en' or 'de')
+    
+    Returns:
+    --------
+    tuple
+        (category_df, region_categories)
+    """
+    # Define region categories
+    region_categories = create_region_categories()
+    
+    # Create dictionary to store aggregated values
+    aggregated_results = {
+        'Category': [],
+        'Handle center': [],
+        'Handle down': [],
+        'Handle up': [],
+        'Total': []
+    }
+    
+    # Handling activity categories
+    handling_categories = ['Handle up', 'Handle center', 'Handle down']
+    
+    # Calculate totals for each category
+    for category_name, regions in region_categories.items():
+        category_data = data[data['region'].isin(regions) & data['activity'].isin(handling_categories)]
+        
+        handle_center = category_data[category_data['activity'] == 'Handle center']['duration'].sum()
+        handle_down = category_data[category_data['activity'] == 'Handle down']['duration'].sum()
+        handle_up = category_data[category_data['activity'] == 'Handle up']['duration'].sum()
+        total = handle_center + handle_down + handle_up
+        
+        aggregated_results['Category'].append(category_name)
+        aggregated_results['Handle center'].append(handle_center)
+        aggregated_results['Handle down'].append(handle_down)
+        aggregated_results['Handle up'].append(handle_up)
+        aggregated_results['Total'].append(total)
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(aggregated_results)
+    
+    # Create a formatted version with time strings
+    formatted_df = df.copy()
+    for col in ['Handle center', 'Handle down', 'Handle up', 'Total']:
+        formatted_df[col] = formatted_df[col].apply(format_seconds_to_hms)
+    
+    # Add percentage columns
+    df['Handle center %'] = (df['Handle center'] / df['Total'] * 100).round(1)
+    df['Handle down %'] = (df['Handle down'] / df['Total'] * 100).round(1)
+    df['Handle up %'] = (df['Handle up'] / df['Total'] * 100).round(1)
+    
+    # Add percentage columns to formatted DataFrame
+    formatted_df['Handle center %'] = df['Handle center %'].apply(lambda x: f"{x}%")
+    formatted_df['Handle down %'] = df['Handle down %'].apply(lambda x: f"{x}%")
+    formatted_df['Handle up %'] = df['Handle up %'].apply(lambda x: f"{x}%")
+    
+    # Sort by total time
+    formatted_df = formatted_df.sort_values('Total', key=lambda x: df['Total'], ascending=False)
+    
+    # Save to CSV if output_dir is provided
+    if output_dir:
+        output_path = ensure_dir_exists(output_dir / 'handling_analysis')
+        formatted_df.to_csv(output_path / 'workstation_category_analysis.csv', index=False)
+        print(f"  {get_text('Saved workstation category analysis to {0}/workstation_category_analysis.csv', language).format(output_path)}")
+    
+    print(f"\n{get_text('Handling Time by Workstation Category', language)}")
+    print("=" * 80)
+    print(formatted_df.to_string(index=False))
+    
+    return df, region_categories
+
+def analyze_handling_position_patterns(data, region_categories, output_dir=None, language='en'):
+    """
+    Perform statistical analysis of handling positions by workstation type
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Input dataframe with employee tracking data
+    region_categories : dict
+        Dictionary mapping categories to regions
+    output_dir : Path, optional
+        Directory to save output files
+    language : str, optional
+        Language code ('en' or 'de')
+    
+    Returns:
+    --------
+    pandas.DataFrame
+        DataFrame with comparison results
+    """
+    print(f"\n{get_text('Statistical Analysis of Handling Positions', language)}")
+    print("=" * 80)
+    
+    # Handling activity categories
+    handling_categories = ['Handle up', 'Handle center', 'Handle down']
+    
+    # For comparing bread vs cake workstations
+    bread_ws_regions = region_categories['Bread Workstation']
+    cake_ws_regions = region_categories['Cake Workstation']
+    
+    # Extract detailed handling data for statistical tests
+    bread_ws_data = data[data['region'].isin(bread_ws_regions) & data['activity'].isin(handling_categories)]
+    cake_ws_data = data[data['region'].isin(cake_ws_regions) & data['activity'].isin(handling_categories)]
+    
+    # Check if both datasets have data
+    if bread_ws_data.empty or cake_ws_data.empty:
+        print(f"{get_text('Insufficient data for comparative analysis', language)}")
+        return pd.DataFrame()
+    
+    # Calculate percentages for visualization
+    bread_total = bread_ws_data['duration'].sum()
+    cake_total = cake_ws_data['duration'].sum()
+    
+    bread_by_position = {}
+    cake_by_position = {}
+    
+    for position in handling_categories:
+        bread_position_time = bread_ws_data[bread_ws_data['activity'] == position]['duration'].sum()
+        cake_position_time = cake_ws_data[cake_ws_data['activity'] == position]['duration'].sum()
+        
+        bread_by_position[position] = bread_position_time
+        cake_by_position[position] = cake_position_time
+    
+    bread_percentages = {pos: (time/bread_total*100) if bread_total > 0 else 0 
+                       for pos, time in bread_by_position.items()}
+    cake_percentages = {pos: (time/cake_total*100) if cake_total > 0 else 0 
+                      for pos, time in cake_by_position.items()}
+    
+    # Perform chi-square test on the distribution of handling positions
+    try:
+        from scipy import stats
+        observed = np.array([
+            [bread_by_position.get('Handle up', 0), bread_by_position.get('Handle center', 0), bread_by_position.get('Handle down', 0)],
+            [cake_by_position.get('Handle up', 0), cake_by_position.get('Handle center', 0), cake_by_position.get('Handle down', 0)]
+        ])
+        
+        chi2, p, dof, expected = stats.chi2_contingency(observed)
+        chi2_result = {'chi2': chi2, 'p_value': p, 'dof': dof}
+    except ImportError:
+        print(f"{get_text('SciPy not found, skipping statistical tests', language)}")
+        chi2_result = {'chi2': None, 'p_value': None, 'dof': None}
+    except Exception as e:
+        print(f"{get_text('Error in statistical test:', language)} {str(e)}")
+        chi2_result = {'chi2': None, 'p_value': None, 'dof': None}
+    
+    # Create results dataframe
+    comparison = pd.DataFrame({
+        'Position': handling_categories,
+        'Bread Workstation (sec)': [bread_by_position.get(pos, 0) for pos in handling_categories],
+        'Bread Workstation (%)': [bread_percentages.get(pos, 0) for pos in handling_categories],
+        'Cake Workstation (sec)': [cake_by_position.get(pos, 0) for pos in handling_categories],
+        'Cake Workstation (%)': [cake_percentages.get(pos, 0) for pos in handling_categories],
+    })
+    
+    # Add ratio column safely
+    comparison['Ratio (Cake/Bread)'] = [
+        cake_by_position.get(pos, 0)/bread_by_position.get(pos, 1) 
+        if bread_by_position.get(pos, 0) > 0 else float('inf')
+        for pos in handling_categories
+    ]
+    
+    # Format time values
+    comparison['Bread Workstation (formatted)'] = comparison['Bread Workstation (sec)'].apply(format_seconds_to_hms)
+    comparison['Cake Workstation (formatted)'] = comparison['Cake Workstation (sec)'].apply(format_seconds_to_hms)
+    
+    # Round percentages
+    comparison['Bread Workstation (%)'] = comparison['Bread Workstation (%)'].round(1)
+    comparison['Cake Workstation (%)'] = comparison['Cake Workstation (%)'].round(1)
+    
+    # Save to CSV if output_dir is provided
+    if output_dir:
+        output_path = ensure_dir_exists(output_dir / 'handling_analysis')
+        comparison.to_csv(output_path / 'bread_vs_cake_comparison.csv', index=False)
+        
+        # Save chi-square test results
+        if chi2_result['chi2'] is not None:
+            with open(output_path / 'statistical_test_results.txt', 'w') as f:
+                f.write(f"Chi-Square Test Results:\n")
+                f.write(f"Chi² value: {chi2_result['chi2']:.2f}\n")
+                f.write(f"p-value: {chi2_result['p_value']:.6f}\n")
+                f.write(f"Degrees of freedom: {chi2_result['dof']}\n")
+                
+                # Interpret results
+                alpha = 0.05
+                if chi2_result['p_value'] < alpha:
+                    f.write("\nSTATISTICAL INFERENCE: There is a statistically significant difference between\n")
+                    f.write("handling position distributions at bread and cake workstations (p < 0.05).\n")
+                else:
+                    f.write("\nSTATISTICAL INFERENCE: There is no statistically significant difference between\n")
+                    f.write("handling position distributions at bread and cake workstations (p >= 0.05).\n")
+        
+        print(f"  {get_text('Saved bread vs cake comparison to {0}/bread_vs_cake_comparison.csv', language).format(output_path)}")
+    
+    # Print results
+    print(f"\n{get_text('Comparison of Handling Positions: Bread vs. Cake Workstations', language)}")
+    print(comparison[['Position', 'Bread Workstation (formatted)', 'Bread Workstation (%)', 
+                    'Cake Workstation (formatted)', 'Cake Workstation (%)', 'Ratio (Cake/Bread)']].to_string(index=False))
+    
+    if chi2_result['chi2'] is not None:
+        print(f"\n{get_text('Chi-Square Test Results:', language)}")
+        print(f"{get_text('Chi² value:', language)} {chi2_result['chi2']:.2f}")
+        print(f"{get_text('p-value:', language)} {chi2_result['p_value']:.6f}")
+        print(f"{get_text('Degrees of freedom:', language)} {chi2_result['dof']}")
+        
+        # Interpret results
+        alpha = 0.05
+        if chi2_result['p_value'] < alpha:
+            print(f"\n{get_text('STATISTICAL INFERENCE: There is a statistically significant difference between', language)}")
+            print(f"{get_text('handling position distributions at bread and cake workstations (p < 0.05).', language)}")
+        else:
+            print(f"\n{get_text('STATISTICAL INFERENCE: There is no statistically significant difference between', language)}")
+            print(f"{get_text('handling position distributions at bread and cake workstations (p >= 0.05).', language)}")
+    
+    # Analyze the key differences
+    print(f"\n{get_text('Key findings:', language)}")
+    
+    # Handle up comparison
+    up_bread_pct = bread_percentages.get('Handle up', 0)
+    up_cake_pct = cake_percentages.get('Handle up', 0)
+    
+    if up_cake_pct > up_bread_pct:
+        diff_pct = up_cake_pct - up_bread_pct
+        print(f"- {get_text('Cake workstations involve {0:.1f}% more Handle up positions compared to bread workstations', language).format(diff_pct)}")
+        print(f"  ({up_cake_pct:.1f}% vs {up_bread_pct:.1f}%)")
+    else:
+        diff_pct = up_bread_pct - up_cake_pct
+        print(f"- {get_text('Bread workstations involve {0:.1f}% more Handle up positions compared to cake workstations', language).format(diff_pct)}")
+        print(f"  ({up_bread_pct:.1f}% vs {up_cake_pct:.1f}%)")
+    
+    # Handle down comparison
+    down_bread_pct = bread_percentages.get('Handle down', 0)
+    down_cake_pct = cake_percentages.get('Handle down', 0)
+    
+    if down_bread_pct > down_cake_pct:
+        diff_pct = down_bread_pct - down_cake_pct
+        print(f"- {get_text('Bread workstations involve {0:.1f}% more Handle down positions compared to cake workstations', language).format(diff_pct)}")
+        print(f"  ({down_bread_pct:.1f}% vs {down_cake_pct:.1f}%)")
+    else:
+        diff_pct = down_cake_pct - down_bread_pct
+        print(f"- {get_text('Cake workstations involve {0:.1f}% more Handle down positions compared to cake workstations', language).format(diff_pct)}")
+        print(f"  ({down_cake_pct:.1f}% vs {down_bread_pct:.1f}%)")
+    
+    # Handle center comparison
+    center_bread_pct = bread_percentages.get('Handle center', 0)
+    center_cake_pct = cake_percentages.get('Handle center', 0)
+    
+    if center_bread_pct > center_cake_pct:
+        diff_pct = center_bread_pct - center_cake_pct
+        print(f"- {get_text('Bread workstations involve {0:.1f}% more Handle center positions compared to cake workstations', language).format(diff_pct)}")
+        print(f"  ({center_bread_pct:.1f}% vs {center_cake_pct:.1f}%)")
+    else:
+        diff_pct = center_cake_pct - center_bread_pct
+        print(f"- {get_text('Cake workstations involve {0:.1f}% more Handle center positions compared to cake workstations', language).format(diff_pct)}")
+        print(f"  ({center_cake_pct:.1f}% vs {center_bread_pct:.1f}%)")
+    
+    # Provide ergonomic implications
+    print(f"\n{get_text('Ergonomic implications:', language)}")
+    if up_cake_pct > up_bread_pct:
+        print(f"- {get_text('Cake workstations may require more ergonomic attention for overhead reaching tasks', language)}")
+    if down_bread_pct > down_cake_pct:
+        print(f"- {get_text('Bread workstations may require more ergonomic attention for low-level handling tasks', language)}")
+    
+    return comparison
+
+def create_handling_position_visualizations(data, region_categories, output_dir, language='en'):
+    """
+    Create visualizations for handling position analysis
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Input dataframe with employee tracking data
+    region_categories : dict
+        Dictionary mapping categories to regions
+    output_dir : Path
+        Directory to save visualizations
+    language : str, optional
+        Language code ('en' or 'de')
+    """
+    try:
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+    except ImportError:
+        print(f"{get_text('Matplotlib or Seaborn not available, skipping visualizations', language)}")
+        return
+    
+    # Ensure visualization directory exists
+    vis_dir = ensure_dir_exists(output_dir / 'visualizations' / 'handling_analysis')
+    
+    # Handling activity categories
+    handling_categories = ['Handle up', 'Handle center', 'Handle down']
+    
+    # Get bread and cake workstation data
+    bread_regions = region_categories['Bread Workstation']
+    cake_regions = region_categories['Cake Workstation']
+    
+    # Calculate workstation data
+    workstation_summary = []
+    
+    # For each workstation category
+    for category_name, regions in region_categories.items():
+        category_data = data[data['region'].isin(regions) & data['activity'].isin(handling_categories)]
+        
+        if category_data.empty:
+            continue
+            
+        total_duration = category_data['duration'].sum()
+        
+        # Calculate percentages by activity
+        for activity in handling_categories:
+            act_data = category_data[category_data['activity'] == activity]
+            act_duration = act_data['duration'].sum()
+            percentage = (act_duration / total_duration * 100) if total_duration > 0 else 0
+            
+            workstation_summary.append({
+                'Category': category_name,
+                'Activity': activity,
+                'Duration': act_duration,
+                'Percentage': percentage
+            })
+    
+    # Create dataframe
+    workstation_df = pd.DataFrame(workstation_summary)
+    
+    # Only proceed if we have enough data
+    if len(workstation_df) > 0:
+        # 1. Workstation Category Comparison
+        try:
+            plt.figure(figsize=(12, 6))
+            
+            # Create stacked bar chart data
+            plot_df = workstation_df.pivot(index='Category', columns='Activity', values='Percentage')
+            
+            # Fill NaN with 0
+            plot_df = plot_df.fillna(0)
+            
+            # Ensure all activities are present
+            for activity in handling_categories:
+                if activity not in plot_df.columns:
+                    plot_df[activity] = 0
+            
+            # Custom sort order
+            category_order = ['Bread Workstation', 'Cake Workstation', 'Bread Baking', 'Cake Baking', 'Common Regions']
+            plot_df = plot_df.reindex(category_order)
+            
+            # Get activity colors
+            activity_colors = get_activity_colors()
+            colors = [activity_colors.get(act, '#CCCCCC') for act in handling_categories]
+            
+            # Create bar chart
+            ax = plot_df[handling_categories].plot(kind='bar', stacked=True, color=colors)
+            
+            plt.title(get_text('Handling Position Distribution by Workstation Type', language), fontsize=14)
+            plt.xlabel(get_text('Workstation Type', language))
+            plt.ylabel(get_text('Percentage of Time (%)', language))
+            plt.xticks(rotation=45, ha='right')
+            plt.legend(title=get_text('Position', language))
+            plt.grid(axis='y', linestyle='--', alpha=0.7)
+            
+            # Add percentage labels
+            for container in ax.containers:
+                ax.bar_label(container, label_type='center', fmt='%.1f%%')
+            
+            plt.tight_layout()
+            plt.savefig(vis_dir / 'workstation_comparison.png', dpi=300)
+            plt.close()
+            
+            print(f"  {get_text('Saved workstation comparison visualization to {0}/workstation_comparison.png', language).format(vis_dir)}")
+        except Exception as e:
+            print(f"{get_text('Error creating workstation comparison visualization:', language)} {str(e)}")
+        
+        # 2. Bread vs Cake Comparison (specifically for these two categories)
+        try:
+            bread_data = workstation_df[workstation_df['Category'] == 'Bread Workstation']
+            cake_data = workstation_df[workstation_df['Category'] == 'Cake Workstation']
+            
+            if not bread_data.empty and not cake_data.empty:
+                plt.figure(figsize=(10, 6))
+                
+                # Prepare data for grouped bar chart
+                bread_values = []
+                cake_values = []
+                
+                for activity in handling_categories:
+                    bread_act = bread_data[bread_data['Activity'] == activity]
+                    bread_val = bread_act['Percentage'].values[0] if not bread_act.empty else 0
+                    bread_values.append(bread_val)
+                    
+                    cake_act = cake_data[cake_data['Activity'] == activity]
+                    cake_val = cake_act['Percentage'].values[0] if not cake_act.empty else 0
+                    cake_values.append(cake_val)
+                
+                # Create the grouped bar chart
+                x = np.arange(len(handling_categories))
+                width = 0.35
+                
+                fig, ax = plt.subplots(figsize=(10, 6))
+                rects1 = ax.bar(x - width/2, bread_values, width, label='Bread Workstation', color='#8c6464')
+                rects2 = ax.bar(x + width/2, cake_values, width, label='Cake Workstation', color='#ffd700')
+                
+                # Add labels and ticks
+                ax.set_ylabel(get_text('Percentage of Time (%)', language))
+                ax.set_title(get_text('Bread vs. Cake Workstation Handling Patterns', language))
+                ax.set_xticks(x)
+                ax.set_xticklabels([get_text(activity, language) for activity in handling_categories])
+                ax.legend()
+                
+                # Add value labels
+                def autolabel(rects):
+                    for rect in rects:
+                        height = rect.get_height()
+                        ax.annotate(f'{height:.1f}%',
+                                  xy=(rect.get_x() + rect.get_width()/2, height),
+                                  xytext=(0, 3),
+                                  textcoords="offset points",
+                                  ha='center', va='bottom')
+                
+                autolabel(rects1)
+                autolabel(rects2)
+                
+                plt.grid(axis='y', linestyle='--', alpha=0.7)
+                plt.tight_layout()
+                plt.savefig(vis_dir / 'bread_vs_cake_comparison.png', dpi=300)
+                plt.close()
+                
+                print(f"  {get_text('Saved bread vs cake comparison visualization to {0}/bread_vs_cake_comparison.png', language).format(vis_dir)}")
+        except Exception as e:
+            print(f"{get_text('Error creating bread vs cake comparison visualization:', language)} {str(e)}")
+
+def run_handling_time_analysis(data, output_dir, language='en'):
+    """
+    Run comprehensive handling time analysis
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Input dataframe with employee tracking data
+    output_dir : Path
+        Directory to save outputs
+    language : str, optional
+        Language code ('en' or 'de')
+    """
+    print("\n" + "=" * 80)
+    print(f"=== {get_text('Handling Time Analysis', language)} ===")
+    print("=" * 80)
+    
+    # Create output directory
+    handling_dir = ensure_dir_exists(output_dir / 'handling_analysis')
+    
+    # Step 1: Top regions analysis
+    print(f"\n=== {get_text('Step 1: Analyzing Top Regions by Employee', language)} ===")
+    pivot_table, employee_top_regions, results_df = analyze_handling_time_in_top_regions(data, handling_dir, language)
+    
+    # Step 2: Workstation categories analysis
+    print(f"\n=== {get_text('Step 2: Analyzing Workstation Categories', language)} ===")
+    category_df, region_categories = analyze_workstation_categories(data, handling_dir, language)
+    
+    # Step 3: Statistical analysis
+    print(f"\n=== {get_text('Step 3: Statistical Analysis of Handling Positions', language)} ===")
+    comparison_df = analyze_handling_position_patterns(data, region_categories, handling_dir, language)
+    
+    # Step 4: Create visualizations
+    print(f"\n=== {get_text('Step 4: Creating Handling Position Visualizations', language)} ===")
+    create_handling_position_visualizations(data, region_categories, output_dir, language)
+    
+    print(f"\n=== {get_text('Handling Time Analysis Complete', language)} ===")
 
 def calculate_ergonomic_score(data, min_duration=5):
     """

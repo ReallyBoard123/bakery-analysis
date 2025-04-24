@@ -21,7 +21,8 @@ from src.analysis.ergonomics import (
     analyze_activity_durations,
     export_duration_factor_thresholds,
     analyze_region_ergonomics,
-    generate_region_ergonomic_report
+    generate_region_ergonomic_report,
+    run_handling_time_analysis
 )
 from src.analysis.workflow import (
     analyze_walking_patterns,
@@ -81,6 +82,7 @@ def parse_arguments():
                       help='Directory to save output files')
     parser.add_argument('--analysisonly', action='store_true', help='Run advanced analysis without generating visualizations')
     parser.add_argument('--ergonomicsonly', action='store_true', help='Run only ergonomic analysis and reports')
+    parser.add_argument('--handlinganalysis', action='store_true', help='Run handling time position analysis')
     parser.add_argument('--german', action='store_true', help='Generate visualizations and reports in German')
     
     # Add step arguments
@@ -92,6 +94,7 @@ def parse_arguments():
     parser.add_argument('--step6', action='store_true', help='Run regional activity analysis')
     parser.add_argument('--step7', action='store_true', help='Run ergonomic analysis')
     parser.add_argument('--step8', action='store_true', help='Run workflow analysis')
+    parser.add_argument('--step9', action='store_true', help='Run handling time analysis')
     parser.add_argument('--employee', type=str, help='Specific employee ID to analyze (e.g., 32-A)')
     parser.add_argument('--department', type=str, choices=['Bread', 'Cake'], 
                       help='Department to analyze (Bread or Cake)')
@@ -547,6 +550,20 @@ def main():
         print(f"\n{get_translation('Results saved to: {0}', language).format(f'{output_path}/ergonomic_analysis/')}")
         return 0
     
+    if args.handlinganalysis:
+        run_handling_time_analysis(data, output_path, language)
+        
+        # Calculate total execution time
+        end_time = time.time()
+        execution_time = end_time - start_time
+        
+        print("\n" + "=" * 40)
+        print(f"=== {get_translation('Analysis Complete', language)} ===")
+        print("=" * 40)
+        print(get_translation('Execution time: {0:.2f} seconds', language).format(execution_time))
+        print(f"\n{get_translation('Results saved to: {0}', language).format(f'{output_path}/handling_analysis/')}")
+        return 0
+    
     # 1. Shift Analysis
     if run_all or args.step1:
         print("\n" + "=" * 40)
@@ -695,6 +712,13 @@ def main():
         walking_df.to_csv(workflow_dir / 'walking_patterns.csv', index=False)
         print(f"  {get_translation('Saved walking pattern analysis to statistics/workflow/walking_patterns.csv', language)}")
     
+    # 9. Handling Time Analysis
+    if run_all or args.step9:
+        print("\n" + "=" * 40)
+        print(f"=== 9. {get_translation('Handling Time Analysis', language)} ===")
+        
+        run_handling_time_analysis(data, output_path, language)
+    
     # Run full advanced analysis if analysisonly flag is set
     if args.analysisonly:
         run_advanced_analysis(data, output_path, language)
@@ -725,11 +749,21 @@ def main():
         print(f"6. {vis_dir}/regional_activity_analysis/ - {get_translation('Activity breakdown by region per employee', language)}")
     if run_all or args.step7:
         print(f"7. {output_path}/ergonomic_analysis/reports/ - {get_translation('Ergonomic assessment reports', language)}")
+    if run_all or args.step8:
+        print(f"8. {stats_dir}/workflow/walking_patterns.csv - {get_translation('Workflow analysis results', language)}")
+    if run_all or args.step9:
+        print(f"9. {output_path}/handling_analysis/ - {get_translation('Handling time position analysis', language)}")
+        print(f"   {output_path}/visualizations/handling_analysis/ - {get_translation('Handling position visualizations', language)}")
     if args.ergonomicsonly:
         print(f"• {output_path}/ergonomic_analysis/reports/ - {get_translation('Ergonomic assessment reports', language)}")
         print(f"• {output_path}/ergonomic_analysis/ergonomic_scores_summary.csv - {get_translation('Scores summary', language)}")
         print(f"• {output_path}/ergonomic_analysis/activity_duration_statistics.csv - {get_translation('Activity duration data', language)}")
         print(f"• {output_path}/ergonomic_analysis/duration_factor_thresholds.txt - {get_translation('Threshold details', language)}")
+    if args.handlinganalysis:
+        print(f"• {output_path}/handling_analysis/handling_time_by_region.csv - {get_translation('Handling time by region', language)}")
+        print(f"• {output_path}/handling_analysis/workstation_category_analysis.csv - {get_translation('Workstation category analysis', language)}")
+        print(f"• {output_path}/handling_analysis/bread_vs_cake_comparison.csv - {get_translation('Bread vs cake workstation comparison', language)}")
+        print(f"• {output_path}/visualizations/handling_analysis/ - {get_translation('Handling position visualizations', language)}")
 
 if __name__ == "__main__":
     sys.exit(main())
