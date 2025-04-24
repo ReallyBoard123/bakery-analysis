@@ -12,6 +12,11 @@ from collections import Counter
 from pathlib import Path
 import matplotlib.gridspec as gridspec
 from matplotlib.patches import Patch
+import matplotlib.patches as patches
+import matplotlib.cm as cm
+from matplotlib.projections.polar import PolarAxes
+from matplotlib.projections import register_projection
+import matplotlib.colors as mcolors
 
 # Import visualization utilities from base
 from src.visualization.base import (
@@ -385,6 +390,9 @@ def generate_ergonomic_report(employee_scores, output_dir, language='en'):
         
         # Use the save_figure utility from base
         save_figure(fig, output_path / f"{emp_id}_ergonomic_report.png")
+        
+        # Generate radial chart for this employee
+        generate_employee_radial_chart(emp_data, output_path, language)
 
 def analyze_region_ergonomics(data, min_percentage=5, min_duration=2):
     """
@@ -723,3 +731,824 @@ def generate_region_ergonomic_report(region_analyses, output_dir, language='en')
         
         # Use the save_figure utility from base
         save_figure(fig, output_path / f"{region}_region_report.png")
+        
+        # Generate radial chart for this region
+        generate_region_radial_chart(region, analysis, output_path, language)
+
+def generate_employee_radial_chart(employee_data, output_dir, language='en'):
+    """
+    Generate a radial chart (spider plot) visualization for employee ergonomic factors
+    
+    Parameters:
+    -----------
+    employee_data : dict
+        Dictionary with employee ergonomic data
+    output_dir : Path
+        Directory to save the visualization
+    language : str, optional
+        Language code ('en' or 'de')
+    
+    Returns:
+    --------
+    None
+    """
+    # Get employee info
+    emp_id = employee_data['employee_id']
+    score = employee_data['final_score']
+    components = employee_data['components']
+    
+    # Get employee colors
+    employee_colors = get_employee_colors()
+    emp_color = employee_colors.get(emp_id, '#333333')
+    
+    # Create figure
+    fig = plt.figure(figsize=(10, 10))
+    
+    # Calculate factor scores (inverse of deductions, normalized to 0-100 scale)
+    deductions = components['deductions']
+    
+    # Define factors and max values for each
+    factors = {
+        'Overall Score': 100,
+        'Handle up': 40,   # Max deduction is 40 points (100% time * 0.4)
+        'Handle down': 50, # Max deduction is 50 points (100% time * 0.5)
+        'Handle center': 5, # Max deduction is 5 points (100% time * 0.05)
+        'Stand': 15,       # Max deduction is 15 points (100% time * 0.15)
+        'Walk': 5          # Max deduction is 5 points (100% time * 0.05)
+    }
+    
+    # Calculate scores (inverse of deductions)
+    scores = {
+        'Overall Score': score
+    }
+    
+    for activity, max_value in factors.items():
+        if activity == 'Overall Score':
+            continue
+            
+        # Calculate score: higher is better
+        if activity in deductions:
+            scores[activity] = max(0, max_value - deductions[activity])
+        else:
+            scores[activity] = max_value
+    
+    # Normalize scores to 0-100 scale
+    normalized_scores = {factor: (value / factors[factor] * 100) for factor, value in scores.items()}
+    
+    # Number of factors
+    N = len(factors)
+    
+    # Angle for each factor
+    angles = np.linspace(0, 2*np.pi, N, endpoint=False).tolist()
+    angles += angles[:1]  # Close the loop
+    
+    # Factor names in order
+    factor_names = list(factors.keys())
+    
+    # Scores in the same order as angles
+    score_values = [normalized_scores[factor] for factor in factor_names]
+    score_values += score_values[:1]  # Close the loop
+    
+    # Create polar subplot
+    ax = fig.add_subplot(111, polar=True)
+    
+    # Plot data
+    ax.plot(angles, score_values, 'o-', linewidth=2, color=emp_color)
+    ax.fill(angles, score_values, alpha=0.25, color=emp_color)
+    
+    # Add factor labels
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels([get_text(factor, language) for factor in factor_names], fontsize=12)
+    
+    # Add radial grid lines for score levels
+    ax.set_yticks([0, 25, 50, 75, 100])
+    ax.set_yticklabels(['0', '25', '50', '75', '100'], fontsize=10)
+    ax.set_rlim(0, 100)
+    
+    # Add title
+    plt.title(get_text("Ergonomic Factor Scores - Employee {0}", language).format(emp_id), 
+             size=16, color=emp_color, y=1.1)
+    
+    # Add a legend for score interpretation
+    plt.figtext(0.5, 0.01, get_text("Higher scores indicate better ergonomic performance", language), 
+               ha='center', fontsize=12)
+    
+    # Save the figure
+    save_figure(fig, output_dir / f"{emp_id}_radial_chart.png")
+
+def generate_region_radial_chart(region, analysis, output_dir, language='en'):
+    """
+    Generate a radial chart visualization for region ergonomic factors
+    
+    Parameters:
+    -----------
+    region : str
+        Region name
+    analysis : dict
+        Dictionary with region analysis data
+    output_dir : Path
+        Directory to save the visualization
+    language : str, optional
+        Language code ('en' or 'de')
+    
+    Returns:
+    --------
+    None
+    """
+    # Extract data
+    score = analysis['ergonomic_score']
+    activity_distribution = analysis['activity_distribution']
+    
+    # Create figure
+    fig = plt.figure(figsize=(10, 10))
+    
+    # Define factors for the radial chart
+    factors = {
+        'Overall Score': 100,
+        'Handle up': 100 - (activity_distribution.get('Handle up', {}).get('percentage', 0) * 0.4),
+        'Handle down': 100 - (activity_distribution.get('Handle down', {}).get('percentage', 0) * 0.5),
+        'Handle center': 100 - (activity_distribution.get('Handle center', {}).get('percentage', 0) * 0.05),
+        'Employee Diversity': min(100, analysis['qualified_employees'] * 20),  # 5+ employees = 100%
+        'Usage Intensity': min(100, analysis['total_duration'] / 3600 * 5)  # 20+ hours = 100%
+    }
+    
+    # Number of factors
+    N = len(factors)
+    
+    # Angle for each factor
+    angles = np.linspace(0, 2*np.pi, N, endpoint=False).tolist()
+    angles += angles[:1]  # Close the loop
+    
+    # Factor names in order
+    factor_names = list(factors.keys())
+    
+    # Scores in the same order as angles
+    score_values = [factors[factor] for factor in factor_names]
+    score_values += score_values[:1]  # Close the loop
+    
+    # Create polar subplot
+    ax = fig.add_subplot(111, polar=True)
+    
+    # Plot data with color based on overall score
+    score_color = 'green' if score >= 75 else ('orange' if score >= 60 else 'red')
+    ax.plot(angles, score_values, 'o-', linewidth=2, color=score_color)
+    ax.fill(angles, score_values, alpha=0.25, color=score_color)
+    
+    # Add factor labels
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels([get_text(factor, language) for factor in factor_names], fontsize=12)
+    
+    # Add radial grid lines for score levels
+    ax.set_yticks([0, 25, 50, 75, 100])
+    ax.set_yticklabels(['0', '25', '50', '75', '100'], fontsize=10)
+    ax.set_rlim(0, 100)
+    
+    # Add title
+    plt.title(get_text("Region Ergonomic Analysis - {0}", language).format(region), 
+             size=16, color=score_color, y=1.1)
+    
+    # Add a legend for score interpretation
+    plt.figtext(0.5, 0.01, get_text("Higher scores indicate better ergonomic performance", language), 
+               ha='center', fontsize=12)
+    
+    # Save the figure
+    save_figure(fig, output_dir / f"{region}_radial_chart.png")
+
+def generate_all_employees_comparison(employee_scores, output_dir, language='en'):
+    """
+    Generate a combined visualization comparing all employees' ergonomic scores
+    
+    Parameters:
+    -----------
+    employee_scores : list
+        List of employee ergonomic score dictionaries
+    output_dir : Path
+        Directory to save the visualization
+    language : str, optional
+        Language code ('en' or 'de')
+    
+    Returns:
+    --------
+    None
+    """
+    # Ensure output directory exists
+    output_path = Path(output_dir)
+    output_path.mkdir(exist_ok=True, parents=True)
+    
+    # Apply consistent visualization styling
+    set_visualization_style()
+    
+    # Get standard colors
+    employee_colors = get_employee_colors()
+    activity_colors = get_activity_colors()
+    
+    # Create figure with 3 panels
+    fig = plt.figure(figsize=(18, 12))
+    gs = gridspec.GridSpec(2, 2, figure=fig, height_ratios=[1, 1], width_ratios=[1, 1])
+    
+    # Sort employees by score
+    sorted_employees = sorted(employee_scores, key=lambda x: x['final_score'], reverse=True)
+    
+    # 1. Bar chart of ergonomic scores
+    ax_scores = fig.add_subplot(gs[0, 0])
+    
+    emp_ids = [emp['employee_id'] for emp in sorted_employees]
+    scores = [emp['final_score'] for emp in sorted_employees]
+    colors = [employee_colors.get(emp_id, '#333333') for emp_id in emp_ids]
+    
+    # Create horizontal bar chart
+    bars = ax_scores.barh(emp_ids, scores, color=colors)
+    
+    # Add score values
+    for bar in bars:
+        width = bar.get_width()
+        ax_scores.text(width + 1, bar.get_y() + bar.get_height()/2, 
+                      f"{width:.1f}", va='center', fontweight='bold')
+    
+    # Add red-yellow-green background zones
+    ax_scores.axvspan(0, 60, alpha=0.1, color='red')
+    ax_scores.axvspan(60, 75, alpha=0.1, color='yellow')
+    ax_scores.axvspan(75, 100, alpha=0.1, color='green')
+    
+    # Add text labels for zones
+    ax_scores.text(30, -0.5, get_text("Poor", language), ha='center', va='top', color='red', fontsize=10)
+    ax_scores.text(67.5, -0.5, get_text("Fair", language), ha='center', va='top', color='orange', fontsize=10)
+    ax_scores.text(87.5, -0.5, get_text("Good", language), ha='center', va='top', color='green', fontsize=10)
+    
+    ax_scores.set_xlabel(get_text('Ergonomic Score', language), fontsize=12)
+    ax_scores.set_title(get_text('Employee Ergonomic Scores', language), fontsize=14)
+    ax_scores.set_xlim(0, 102)  # Leave room for labels
+    
+    # 2. Activity distribution heatmap
+    ax_heatmap = fig.add_subplot(gs[0, 1])
+    
+    # Prepare data for heatmap
+    heatmap_data = []
+    for emp in sorted_employees:
+        components = emp['components']
+        act_breakdown = components['activity_breakdown']
+        row = {'employee': emp['employee_id']}
+        
+        for activity in ['Handle up', 'Handle down', 'Handle center', 'Stand', 'Walk']:
+            if activity in act_breakdown:
+                row[activity] = act_breakdown[activity]['percentage']
+            else:
+                row[activity] = 0
+        
+        heatmap_data.append(row)
+    
+    # Convert to DataFrame
+    heatmap_df = pd.DataFrame(heatmap_data)
+    heatmap_df.set_index('employee', inplace=True)
+    
+    # Create heatmap
+    sns.heatmap(
+        heatmap_df, 
+        annot=True, 
+        fmt=".1f", 
+        cmap="YlOrRd", 
+        cbar_kws={'label': get_text('Percentage of Time (%)', language)},
+        ax=ax_heatmap
+    )
+    
+    ax_heatmap.set_title(get_text('Activity Distribution by Employee (%)', language), fontsize=14)
+    ax_heatmap.set_ylabel('')  # Remove y-label as it's redundant with the bar chart
+    
+    # 3. Deduction factors stacked bar chart
+    ax_deductions = fig.add_subplot(gs[1, 0])
+    
+    # Prepare deduction data
+    deduction_data = []
+    for emp in sorted_employees:
+        components = emp['components']
+        deductions = components['deductions']
+        row = {'employee': emp['employee_id']}
+        
+        for activity in ['Handle up', 'Handle down', 'Handle center', 'Stand', 'Walk']:
+            row[activity] = deductions.get(activity, 0)
+        
+        deduction_data.append(row)
+    
+    # Convert to DataFrame
+    deduction_df = pd.DataFrame(deduction_data)
+    deduction_df.set_index('employee', inplace=True)
+    
+    # Create stacked bar chart
+    deduction_df.plot(
+        kind='barh', 
+        stacked=True, 
+        color=[activity_colors.get(col, '#CCCCCC') for col in deduction_df.columns],
+        ax=ax_deductions
+    )
+    
+    ax_deductions.set_title(get_text('Ergonomic Deduction Factors by Employee', language), fontsize=14)
+    ax_deductions.set_xlabel(get_text('Deduction Points', language), fontsize=12)
+    ax_deductions.legend(title=get_text('Activity', language))
+    
+    # 4. Key metrics table
+    ax_metrics = fig.add_subplot(gs[1, 1])
+    ax_metrics.axis('off')
+    
+    # Prepare metrics data
+    metrics_data = [[
+        get_text("Employee", language),
+        get_text("Score", language),
+        get_text("Hours", language),
+        get_text("Handle up %", language),
+        get_text("Handle down %", language),
+        get_text("Stand %", language)
+    ]]
+    
+    for emp in sorted_employees:
+        components = emp['components']
+        act_breakdown = components['activity_breakdown']
+        
+        handle_up_pct = act_breakdown.get('Handle up', {}).get('percentage', 0)
+        handle_down_pct = act_breakdown.get('Handle down', {}).get('percentage', 0)
+        stand_pct = act_breakdown.get('Stand', {}).get('percentage', 0)
+        
+        metrics_data.append([
+            emp['employee_id'],
+            f"{emp['final_score']:.1f}",
+            f"{emp['total_duration']/3600:.1f}",
+            f"{handle_up_pct:.1f}%",
+            f"{handle_down_pct:.1f}%",
+            f"{stand_pct:.1f}%"
+        ])
+    
+    # Create table
+    metrics_table = ax_metrics.table(
+        cellText=metrics_data,
+        cellLoc='center',
+        loc='center',
+        colWidths=[0.15, 0.15, 0.15, 0.15, 0.15, 0.15]
+    )
+    
+    # Style table
+    metrics_table.auto_set_font_size(False)
+    metrics_table.set_fontsize(10)
+    metrics_table.scale(1, 1.5)
+    
+    # Header formatting
+    for j in range(len(metrics_data[0])):
+        metrics_table[(0, j)].set_facecolor('#4472C4')
+        metrics_table[(0, j)].set_text_props(color='white', fontweight='bold')
+    
+    # Color code scores
+    for i in range(1, len(metrics_data)):
+        score = float(metrics_data[i][1])
+        if score >= 75:
+            metrics_table[(i, 1)].set_facecolor('lightgreen')
+        elif score >= 60:
+            metrics_table[(i, 1)].set_facecolor('lightyellow')
+        else:
+            metrics_table[(i, 1)].set_facecolor('lightcoral')
+    
+    ax_metrics.set_title(get_text('Employee Ergonomic Metrics Summary', language), fontsize=14)
+    
+    # Add main title
+    plt.suptitle(get_text("Bakery Employee Ergonomic Comparison", language), fontsize=18, y=0.98)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    
+    # Save the figure
+    save_figure(fig, output_path / "employee_ergonomic_comparison.png")
+
+def generate_all_regions_comparison(region_analyses, output_dir, language='en'):
+    """
+    Generate a combined visualization comparing all regions' ergonomic metrics
+    
+    Parameters:
+    -----------
+    region_analyses : dict
+        Dictionary of region analyses
+    output_dir : Path
+        Directory to save the visualization
+    language : str, optional
+        Language code ('en' or 'de')
+    
+    Returns:
+    --------
+    None
+    """
+    # Ensure output directory exists
+    output_path = Path(output_dir)
+    output_path.mkdir(exist_ok=True, parents=True)
+    
+    # Apply consistent visualization styling
+    set_visualization_style()
+    
+    # Get standard colors
+    activity_colors = get_activity_colors()
+    
+    # Filter out regions with no data
+    valid_regions = {r: data for r, data in region_analyses.items() if 'ergonomic_score' in data}
+    
+    # If no valid regions, return
+    if not valid_regions:
+        print(f"No valid regions found for comparison")
+        return
+    
+    # Sort regions by ergonomic score
+    sorted_regions = sorted(valid_regions.items(), key=lambda x: x[1]['ergonomic_score'], reverse=True)
+    
+    # Get list of regions to display (top 15 to avoid overcrowding)
+    display_regions = sorted_regions[:15]
+    
+    # Create figure with 3 panels
+    fig = plt.figure(figsize=(18, 14))
+    gs = gridspec.GridSpec(2, 2, figure=fig, height_ratios=[1, 1])
+    
+    # 1. Bar chart of ergonomic scores
+    ax_scores = fig.add_subplot(gs[0, 0])
+    
+    region_names = [r[0] for r in display_regions]
+    scores = [r[1]['ergonomic_score'] for r in display_regions]
+    
+    # Truncate long region names
+    display_names = [name[:15] + '...' if len(name) > 15 else name for name in region_names]
+    
+    # Create horizontal bar chart with color gradient based on score
+    cmap = plt.cm.get_cmap('RdYlGn')
+    score_colors = [cmap(score/100) for score in scores]
+    
+    bars = ax_scores.barh(display_names, scores, color=score_colors)
+    
+    # Add score values
+    for bar in bars:
+        width = bar.get_width()
+        ax_scores.text(width + 1, bar.get_y() + bar.get_height()/2, 
+                      f"{width:.1f}", va='center', fontweight='bold')
+    
+    # Add red-yellow-green background zones
+    ax_scores.axvspan(0, 60, alpha=0.1, color='red')
+    ax_scores.axvspan(60, 75, alpha=0.1, color='yellow')
+    ax_scores.axvspan(75, 100, alpha=0.1, color='green')
+    
+    # Add text labels for zones
+    ax_scores.text(30, -0.5, get_text("Poor", language), ha='center', va='top', color='red', fontsize=10)
+    ax_scores.text(67.5, -0.5, get_text("Fair", language), ha='center', va='top', color='orange', fontsize=10)
+    ax_scores.text(87.5, -0.5, get_text("Good", language), ha='center', va='top', color='green', fontsize=10)
+    
+    ax_scores.set_xlabel(get_text('Ergonomic Score', language), fontsize=12)
+    ax_scores.set_title(get_text('Top Regions by Ergonomic Score', language), fontsize=14)
+    ax_scores.set_xlim(0, 102)  # Leave room for labels
+    
+    # 2. Activity distribution heatmap
+    ax_heatmap = fig.add_subplot(gs[0, 1])
+    
+    # Prepare data for heatmap
+    heatmap_data = []
+    for region, data in display_regions:
+        activity_distribution = data['activity_distribution']
+        row = {'region': region}
+        
+        for activity in ['Handle up', 'Handle down', 'Handle center']:
+            if activity in activity_distribution:
+                row[activity] = activity_distribution[activity]['percentage']
+            else:
+                row[activity] = 0
+        
+        heatmap_data.append(row)
+    
+    # Convert to DataFrame
+    heatmap_df = pd.DataFrame(heatmap_data)
+    heatmap_df.set_index('region', inplace=True)
+    
+    # Truncate index names
+    heatmap_df.index = [idx[:15] + '...' if len(idx) > 15 else idx for idx in heatmap_df.index]
+    
+    # Create heatmap
+    sns.heatmap(
+        heatmap_df, 
+        annot=True, 
+        fmt=".1f", 
+        cmap="YlOrRd", 
+        cbar_kws={'label': get_text('Percentage of Time (%)', language)},
+        ax=ax_heatmap
+    )
+    
+    ax_heatmap.set_title(get_text('Activity Distribution by Region (%)', language), fontsize=14)
+    ax_heatmap.set_ylabel('')  # Remove y-label as it's redundant with the bar chart
+    
+    # 3. Region usage bubble chart
+    ax_bubble = fig.add_subplot(gs[1, 0])
+    
+    # Prepare bubble chart data
+    bubble_data = []
+    for region, data in display_regions:
+        bubble_data.append({
+            'region': region[:10] + '...' if len(region) > 10 else region,
+            'score': data['ergonomic_score'],
+            'hours': data['total_duration'] / 3600,
+            'employees': data['qualified_employees']
+        })
+    
+    # Convert to DataFrame
+    bubble_df = pd.DataFrame(bubble_data)
+    
+    # Create bubble chart - score vs hours with bubble size as employee count
+    scatter = ax_bubble.scatter(
+        bubble_df['hours'], 
+        bubble_df['score'], 
+        s=bubble_df['employees'] * 100,  # Scale bubble size
+        c=bubble_df['score'],  # Color by score
+        cmap='RdYlGn',
+        alpha=0.7,
+        edgecolors='black'
+    )
+    
+    # Add region labels
+    for i, row in bubble_df.iterrows():
+        ax_bubble.annotate(
+            row['region'], 
+            (row['hours'], row['score']),
+            xytext=(7, 0),
+            textcoords='offset points',
+            fontsize=8
+        )
+    
+    # Add a colorbar
+    cbar = plt.colorbar(scatter, ax=ax_bubble)
+    cbar.set_label(get_text('Ergonomic Score', language))
+    
+    # Add a legend for bubble size
+    sizes = [1, 3, 5, 7]
+    labels = [f"{s} {get_text('employees', language)}" for s in sizes]
+    legend_bubbles = []
+    for size in sizes:
+        legend_bubbles.append(ax_bubble.scatter([], [], s=size*100, c='gray', alpha=0.7, edgecolors='black'))
+    
+    ax_bubble.legend(legend_bubbles, labels, loc='lower right', title=get_text('Employees', language))
+    
+    ax_bubble.set_xlabel(get_text('Usage (hours)', language), fontsize=12)
+    ax_bubble.set_ylabel(get_text('Ergonomic Score', language), fontsize=12)
+    ax_bubble.set_title(get_text('Region Usage vs. Ergonomic Score', language), fontsize=14)
+    ax_bubble.grid(True, linestyle='--', alpha=0.7)
+    
+    # 4. Key metrics table
+    ax_metrics = fig.add_subplot(gs[1, 1])
+    ax_metrics.axis('off')
+    
+    # Prepare metrics data
+    metrics_data = [[
+        get_text("Region", language),
+        get_text("Score", language),
+        get_text("Hours", language),
+        get_text("Employees", language),
+        get_text("Handle up %", language),
+        get_text("Handle down %", language)
+    ]]
+    
+    for region, data in display_regions:
+        activity_distribution = data['activity_distribution']
+        handle_up_pct = activity_distribution.get('Handle up', {}).get('percentage', 0)
+        handle_down_pct = activity_distribution.get('Handle down', {}).get('percentage', 0)
+        
+        metrics_data.append([
+            region[:15] + '...' if len(region) > 15 else region,
+            f"{data['ergonomic_score']:.1f}",
+            f"{data['total_duration']/3600:.1f}",
+            str(data['qualified_employees']),
+            f"{handle_up_pct:.1f}%",
+            f"{handle_down_pct:.1f}%"
+        ])
+    
+    # Create table
+    metrics_table = ax_metrics.table(
+        cellText=metrics_data,
+        cellLoc='center',
+        loc='center',
+        colWidths=[0.25, 0.15, 0.15, 0.15, 0.15, 0.15]
+    )
+    
+    # Style table
+    metrics_table.auto_set_font_size(False)
+    metrics_table.set_fontsize(10)
+    metrics_table.scale(1, 1.5)
+    
+    # Header formatting
+    for j in range(len(metrics_data[0])):
+        metrics_table[(0, j)].set_facecolor('#4472C4')
+        metrics_table[(0, j)].set_text_props(color='white', fontweight='bold')
+    
+    # Color code scores
+    for i in range(1, len(metrics_data)):
+        score = float(metrics_data[i][1])
+        if score >= 75:
+            metrics_table[(i, 1)].set_facecolor('lightgreen')
+        elif score >= 60:
+            metrics_table[(i, 1)].set_facecolor('lightyellow')
+        else:
+            metrics_table[(i, 1)].set_facecolor('lightcoral')
+    
+    ax_metrics.set_title(get_text('Region Ergonomic Metrics Summary', language), fontsize=14)
+    
+    # Add main title
+    plt.suptitle(get_text("Bakery Region Ergonomic Comparison", language), fontsize=18, y=0.98)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    
+    # Save the figure
+    save_figure(fig, output_path / "region_ergonomic_comparison.png")
+
+def generate_circular_packing_visualization(employee_scores, region_analyses, output_dir, language='en'):
+    """
+    Generate a circular packing visualization showing employees and regions 
+    grouped by ergonomic score
+    
+    Parameters:
+    -----------
+    employee_scores : list
+        List of employee ergonomic score dictionaries
+    region_analyses : dict
+        Dictionary of region analyses
+    output_dir : Path
+        Directory to save the visualization
+    language : str, optional
+        Language code ('en' or 'de')
+    
+    Returns:
+    --------
+    None
+    """
+    try:
+        import squarify
+    except ImportError:
+        print("Warning: squarify module not found. Installing required packages for treemap visualization.")
+        import subprocess
+        subprocess.check_call(["pip", "install", "squarify"])
+        import squarify
+    
+    # Ensure output directory exists
+    output_path = Path(output_dir)
+    output_path.mkdir(exist_ok=True, parents=True)
+    
+    # Apply consistent visualization styling
+    set_visualization_style()
+    
+    # Create figure
+    fig = plt.figure(figsize=(16, 12))
+    
+    # 1. Employee treemap
+    ax_emp = fig.add_subplot(1, 2, 1)
+    
+    # Group employees by score range
+    score_ranges = {
+        "Good (75-100)": [],
+        "Fair (60-75)": [],
+        "Poor (0-60)": []
+    }
+    
+    for emp in employee_scores:
+        score = emp['final_score']
+        emp_id = emp['employee_id']
+        hours = emp['total_duration'] / 3600
+        
+        if score >= 75:
+            score_ranges["Good (75-100)"].append((emp_id, score, hours))
+        elif score >= 60:
+            score_ranges["Fair (60-75)"].append((emp_id, score, hours))
+        else:
+            score_ranges["Poor (0-60)"].append((emp_id, score, hours))
+    
+    # Prepare data for treemap
+    treemap_data = []
+    labels = []
+    colors = []
+    
+    # Create nested data for treemap
+    for category, employees in score_ranges.items():
+        if not employees:
+            continue
+            
+        # Sort employees by score
+        sorted_emps = sorted(employees, key=lambda x: x[1], reverse=True)
+        
+        # Add entries for each employee
+        for emp_id, score, hours in sorted_emps:
+            # Value for treemap is hours worked
+            treemap_data.append(hours)
+            
+            # Label is employee ID and score
+            labels.append(f"{emp_id}\n{score:.1f}")
+            
+            # Color based on score
+            if score >= 75:
+                colors.append('#78C47B')  # Good - Green
+            elif score >= 60:
+                colors.append('#F0CF57')  # Fair - Yellow
+            else:
+                colors.append('#E07F70')  # Poor - Red
+    
+    # Create treemap
+    if treemap_data:
+        squarify.plot(
+            sizes=treemap_data,
+            label=labels,
+            color=colors,
+            alpha=0.8,
+            pad=True,
+            ax=ax_emp
+        )
+    
+    ax_emp.set_xticks([])
+    ax_emp.set_yticks([])
+    ax_emp.set_title(get_text("Employee Ergonomic Scores", language), fontsize=16)
+    
+    # Add legend
+    legend_elements = [
+        patches.Patch(facecolor='#78C47B', edgecolor='k', alpha=0.8, label=get_text('Good (75-100)', language)),
+        patches.Patch(facecolor='#F0CF57', edgecolor='k', alpha=0.8, label=get_text('Fair (60-75)', language)),
+        patches.Patch(facecolor='#E07F70', edgecolor='k', alpha=0.8, label=get_text('Poor (0-60)', language))
+    ]
+    
+    ax_emp.legend(handles=legend_elements, loc='upper right')
+    
+    # 2. Region treemap
+    ax_region = fig.add_subplot(1, 2, 2)
+    
+    # Filter valid regions
+    valid_regions = {r: data for r, data in region_analyses.items() if 'ergonomic_score' in data}
+    
+    # Group regions by score range
+    region_score_ranges = {
+        "Good (75-100)": [],
+        "Fair (60-75)": [],
+        "Poor (0-60)": []
+    }
+    
+    for region, data in valid_regions.items():
+        score = data['ergonomic_score']
+        hours = data['total_duration'] / 3600
+        employees = data['qualified_employees']
+        
+        if score >= 75:
+            region_score_ranges["Good (75-100)"].append((region, score, hours, employees))
+        elif score >= 60:
+            region_score_ranges["Fair (60-75)"].append((region, score, hours, employees))
+        else:
+            region_score_ranges["Poor (0-60)"].append((region, score, hours, employees))
+    
+    # Prepare data for treemap
+    region_treemap_data = []
+    region_labels = []
+    region_colors = []
+    
+    # Process each category
+    for category, regions in region_score_ranges.items():
+        if not regions:
+            continue
+            
+        # Sort regions by score
+        sorted_regions = sorted(regions, key=lambda x: x[1], reverse=True)
+        
+        # Take top 10 regions in each category to avoid overcrowding
+        display_regions = sorted_regions[:10]
+        
+        for region, score, hours, employees in display_regions:
+            # Value is hours used
+            region_treemap_data.append(hours)
+            
+            # Truncate long region names
+            display_name = region[:12] + '...' if len(region) > 12 else region
+            
+            # Label includes region name, score and employee count
+            region_labels.append(f"{display_name}\n{score:.1f} ({employees})")
+            
+            # Color based on score
+            if score >= 75:
+                region_colors.append('#78C47B')  # Good - Green
+            elif score >= 60:
+                region_colors.append('#F0CF57')  # Fair - Yellow
+            else:
+                region_colors.append('#E07F70')  # Poor - Red
+    
+    # Create treemap
+    if region_treemap_data:
+        squarify.plot(
+            sizes=region_treemap_data,
+            label=region_labels,
+            color=region_colors,
+            alpha=0.8,
+            pad=True,
+            ax=ax_region
+        )
+    
+    ax_region.set_xticks([])
+    ax_region.set_yticks([])
+    ax_region.set_title(get_text("Region Ergonomic Scores", language), fontsize=16)
+    
+    # Add legend
+    region_legend_elements = [
+        patches.Patch(facecolor='#78C47B', edgecolor='k', alpha=0.8, label=get_text('Good (75-100)', language)),
+        patches.Patch(facecolor='#F0CF57', edgecolor='k', alpha=0.8, label=get_text('Fair (60-75)', language)),
+        patches.Patch(facecolor='#E07F70', edgecolor='k', alpha=0.8, label=get_text('Poor (0-60)', language))
+    ]
+    
+    ax_region.legend(handles=region_legend_elements, loc='upper right')
+    
+    # Add main title
+    plt.suptitle(get_text("Bakery Ergonomic Overview", language), fontsize=20, y=0.98)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    
+    # Save the figure
+    save_figure(fig, output_path / "ergonomic_overview_treemap.png")
