@@ -728,9 +728,6 @@ def generate_region_ergonomic_report(region_analyses, output_dir, language='en')
         
         # Use the save_figure utility from base
         save_figure(fig, output_path / f"{region}_region_report.png")
-        
-        
-
 
 def generate_all_employees_comparison(employee_scores, output_dir, language='en'):
     """
@@ -1170,7 +1167,7 @@ def generate_all_regions_comparison(region_analyses, output_dir, language='en'):
 
 def generate_circular_packing_visualization(employee_scores, region_analyses, output_dir, language='en'):
     """
-    Generate a circular packing visualization showing employees and regions 
+    Generate a treemap visualization showing employees and regions 
     grouped by ergonomic score
     
     Parameters:
@@ -1370,3 +1367,289 @@ def generate_circular_packing_visualization(employee_scores, region_analyses, ou
     
     # Save the figure
     save_figure(fig, output_path / "ergonomic_overview_treemap.png")
+
+def generate_employee_handling_comparison_by_region(data, region_analyses, output_dir, language='en'):
+    """
+    Generate bar charts comparing employee handling activities across regions
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Input dataframe with employee tracking data
+    region_analyses : dict
+        Dictionary of region analyses from analyze_region_ergonomics
+    output_dir : Path
+        Directory to save the visualizations
+    language : str, optional
+        Language code ('en' or 'de')
+    
+    Returns:
+    --------
+    None
+    """
+    # Ensure output directory exists
+    output_path = Path(output_dir) / 'region_employee_comparisons'
+    output_path.mkdir(exist_ok=True, parents=True)
+    
+    # Apply consistent visualization styling
+    set_visualization_style()
+    
+    # Get standard colors
+    activity_colors = get_activity_colors()
+    employee_colors = get_employee_colors()
+    
+    # Filter data to only include handling activities
+    handling_activities = ['Handle up', 'Handle center', 'Handle down']
+    handling_data = data[data['activity'].isin(handling_activities)]
+    
+    # Sort regions by ergonomic score (if available)
+    if region_analyses:
+        sorted_regions = sorted(
+            [(r, data['ergonomic_score']) for r, data in region_analyses.items() if 'ergonomic_score' in data], 
+            key=lambda x: x[1], 
+            reverse=True
+        )
+        regions_to_process = [r[0] for r in sorted_regions]  # Process all regions in order
+    else:
+        # If no region analyses provided, process regions with most handling activity
+        region_handling_time = handling_data.groupby('region')['duration'].sum().sort_values(ascending=False)
+        regions_to_process = region_handling_time.index.tolist()
+    
+    # Minimum percentage threshold for including employees
+    min_percentage = 5.0
+    
+    # List to keep track of regions with qualified employees
+    valid_regions = []
+    
+    # Process each region
+    for region in regions_to_process:
+        # Filter data for this region
+        region_data = handling_data[handling_data['region'] == region]
+        
+        if region_data.empty:
+            continue
+        
+        # Calculate total duration for this region
+        total_region_duration = region_data['duration'].sum()
+        
+        # Get employees who work significantly in this region (at least 5%)
+        qualified_employees = []
+        
+        for emp_id in region_data['id'].unique():
+            # Get all data for this employee
+            all_emp_data = handling_data[handling_data['id'] == emp_id]
+            emp_total_time = all_emp_data['duration'].sum()
+            
+            # Get time in this region for this employee
+            emp_region_data = region_data[region_data['id'] == emp_id]
+            emp_region_time = emp_region_data['duration'].sum()
+            
+            # Calculate percentage
+            percentage = (emp_region_time / emp_total_time * 100) if emp_total_time > 0 else 0
+            
+            # Include only if employee spends at least 5% of their time here
+            if percentage >= min_percentage:
+                qualified_employees.append(emp_id)
+        
+        if not qualified_employees:
+            continue
+            
+        # Add to valid regions list
+        valid_regions.append(region)
+        
+        # Calculate total region hours
+        total_region_hours = total_region_duration / 3600
+        
+        # Create figure - size depends on number of employees
+        fig_width = max(10, min(20, 2 + len(qualified_employees) * 3))
+        fig_height = 8
+        fig, axes = plt.subplots(1, len(qualified_employees), figsize=(fig_width, fig_height), sharey=False)
+        
+        # Ensure axes is a list even with one employee
+        if len(qualified_employees) == 1:
+            axes = [axes]
+        
+        # Process each qualified employee
+        for i, emp_id in enumerate(sorted(qualified_employees)):
+            # Filter data for this employee in this region
+            emp_data = region_data[region_data['id'] == emp_id]
+            
+            # Calculate activity durations
+            activity_durations = {}
+            for activity in handling_activities:
+                act_data = emp_data[emp_data['activity'] == activity]
+                activity_durations[activity] = act_data['duration'].sum() / 3600  # Convert to hours
+            
+            # Calculate employee's total time in this region
+            emp_total_duration = emp_data['duration'].sum()
+            emp_total_hours = emp_total_duration / 3600
+            emp_percentage = (emp_total_duration / total_region_duration * 100) if total_region_duration > 0 else 0
+            
+            # Create bar chart
+            ax = axes[i]
+            activities = []
+            hours = []
+            colors = []
+            
+            for activity in handling_activities:
+                activities.append(get_text(activity, language))
+                hours.append(activity_durations.get(activity, 0))
+                colors.append(activity_colors.get(activity, '#CCCCCC'))
+            
+            # Create bars without labels
+            ax.bar(activities, hours, color=colors)
+            
+            # Set employee-specific title and color
+            emp_color = employee_colors.get(emp_id, '#333333')
+            ax.set_title(f"{emp_id}\n{emp_total_hours:.1f}h ({emp_percentage:.1f}%)", 
+                       color=emp_color, fontweight='bold')
+            
+            # Customize appearance
+            if i == 0:  # Only add y-label to first plot
+                ax.set_ylabel(get_text('Hours', language))
+            plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+            ax.grid(axis='y', linestyle='--', alpha=0.7)
+        
+        # Add overall region title
+        ergonomic_score = region_analyses.get(region, {}).get('ergonomic_score', None)
+        if ergonomic_score is not None:
+            score_color = 'green' if ergonomic_score >= 75 else ('orange' if ergonomic_score >= 60 else 'red')
+            title = f"{get_text('Region', language)}: {region} - {get_text('Score', language)}: {ergonomic_score:.1f}/100"
+            plt.suptitle(title, fontsize=16, color=score_color, y=0.98)
+        else:
+            plt.suptitle(f"{get_text('Region', language)}: {region}", fontsize=16, y=0.98)
+        
+        # Add subtitle with region total
+        subtitle = f"{get_text('Total Hours', language)}: {total_region_hours:.1f} | "
+        subtitle += f"{get_text('Employees', language)}: {len(qualified_employees)}"
+        fig.text(0.5, 0.91, subtitle, ha='center', fontsize=12)
+        
+        # Add common legend at the bottom
+        handles = [patches.Patch(color=activity_colors.get(act, '#CCCCCC'), label=get_text(act, language)) 
+                for act in handling_activities]
+        fig.legend(handles=handles, loc='lower center', ncol=len(handling_activities), 
+                title=get_text('Activity', language), bbox_to_anchor=(0.5, 0.01))
+        
+        # Adjust layout and save
+        plt.tight_layout(rect=[0, 0.05, 1, 0.9])
+        save_figure(fig, output_path / f"{region}_employee_handling_comparison.png")
+        
+        # Report progress
+        print(f"  {get_text('Generated employee handling comparison for region', language)}: {region}")
+    
+    # Create combined visualization for all valid regions
+    if valid_regions:
+        # Create figure
+        fig = plt.figure(figsize=(20, 15))
+        
+        # Calculate grid dimensions based on number of regions
+        num_regions = len(valid_regions)
+        num_cols = 2  # Arrange in 2 columns
+        num_rows = (num_regions + num_cols - 1) // num_cols  # Ceiling division
+        
+        # Create subplot grid
+        gs = gridspec.GridSpec(num_rows, num_cols, figure=fig)
+        
+        # Process each region
+        for idx, region in enumerate(valid_regions):
+            # Calculate grid position
+            row = idx // num_cols
+            col = idx % num_cols
+            
+            # Create subplot
+            ax = fig.add_subplot(gs[row, col])
+            
+            # Filter data for this region
+            region_data = handling_data[handling_data['region'] == region]
+            
+            if region_data.empty:
+                continue
+                
+            # Calculate region total
+            region_total = region_data['duration'].sum() / 3600  # hours
+            
+            # Get qualified employees for this region
+            qualified_employees = []
+            
+            for emp_id in region_data['id'].unique():
+                # Get all data for this employee
+                all_emp_data = handling_data[handling_data['id'] == emp_id]
+                emp_total_time = all_emp_data['duration'].sum()
+                
+                # Get time in this region for this employee
+                emp_region_data = region_data[region_data['id'] == emp_id]
+                emp_region_time = emp_region_data['duration'].sum()
+                
+                # Calculate percentage
+                percentage = (emp_region_time / emp_total_time * 100) if emp_total_time > 0 else 0
+                
+                # Include only if employee spends at least 5% of their time here
+                if percentage >= min_percentage:
+                    qualified_employees.append(emp_id)
+            
+            if not qualified_employees:
+                continue
+            
+            # Calculate activity breakdown by employee
+            data_to_plot = []
+            
+            for emp_id in sorted(qualified_employees):
+                emp_data = region_data[region_data['id'] == emp_id]
+                
+                row_data = {'Employee': emp_id}
+                
+                for activity in handling_activities:
+                    act_data = emp_data[emp_data['activity'] == activity]
+                    act_hours = act_data['duration'].sum() / 3600
+                    row_data[activity] = act_hours
+                
+                data_to_plot.append(row_data)
+            
+            # Convert to DataFrame
+            plot_df = pd.DataFrame(data_to_plot)
+            if not plot_df.empty and 'Employee' in plot_df.columns:
+                plot_df.set_index('Employee', inplace=True)
+                
+                # Create stacked bar chart
+                plot_df.plot(
+                    kind='bar', 
+                    stacked=True, 
+                    ax=ax, 
+                    color=[activity_colors.get(col, '#CCCCCC') for col in plot_df.columns],
+                    legend=False  # Don't show legend on individual plots
+                )
+                
+                # Get ergonomic score if available
+                ergonomic_score = region_analyses.get(region, {}).get('ergonomic_score', None)
+                if ergonomic_score is not None:
+                    score_color = 'green' if ergonomic_score >= 75 else ('orange' if ergonomic_score >= 60 else 'red')
+                    title = f"{region} ({ergonomic_score:.1f}/100)"
+                else:
+                    score_color = 'black'
+                    title = f"{region}"
+                
+                # Add title with region info
+                ax.set_title(f"{title}\n{get_text('Total', language)}: {region_total:.1f}h", 
+                           fontsize=12, color=score_color)
+                
+                # Customize appearance
+                ax.set_ylabel(get_text('Hours', language))
+                ax.set_xlabel('')
+                plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+                ax.grid(axis='y', linestyle='--', alpha=0.7)
+        
+        # Add common legend at the bottom
+        handles = [patches.Patch(color=activity_colors.get(act, '#CCCCCC'), label=get_text(act, language)) 
+                for act in handling_activities]
+        fig.legend(handles=handles, loc='lower center', ncol=len(handling_activities), 
+                title=get_text('Activity', language), bbox_to_anchor=(0.5, 0.01))
+        
+        # Add overall title
+        plt.suptitle(get_text('Employee Handling Activities in Top Regions', language), fontsize=18, y=0.98)
+        
+        # Adjust layout
+        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+        
+        # Save figure
+        save_figure(fig, output_path / "all_regions_employee_handling_comparison.png")
+        print(f"  {get_text('Generated combined handling comparison for all regions', language)}")

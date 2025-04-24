@@ -16,6 +16,7 @@ from src.analysis.ergonomics import (
     calculate_ergonomic_score,
     generate_all_employees_comparison,
     generate_all_regions_comparison,
+    generate_employee_handling_comparison_by_region,
     generate_ergonomic_report,
     analyze_activity_durations,
     export_duration_factor_thresholds,
@@ -240,8 +241,6 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None, language='en'):
         print(f"  {get_translation('Generating employee comparison visualizations...', language)}")
         generate_all_employees_comparison(employee_scores, ergonomic_dir, language)
     
-    
-    
     # Analyze region ergonomics (skip if analyzing just one employee)
     if not employee_id:
         print(f"  {get_translation('Analyzing region ergonomics...', language)}")
@@ -270,9 +269,14 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None, language='en'):
         region_summary_df.to_csv(ergonomic_dir / 'region_ergonomic_summary.csv', index=False)
         print(f"  {get_translation('Saved region ergonomic summary to ergonomic_analysis/region_ergonomic_summary.csv', language)}")
         
-    # After generating region reports
+        # Generate region comparison visualizations
         print(f"  {get_translation('Generating region comparison visualizations...', language)}")
         generate_all_regions_comparison(region_analyses, ergonomic_dir, language)
+        
+        # Generate employee handling comparison by region
+        print(f"  {get_translation('Generating employee handling comparison by region...', language)}")
+        generate_employee_handling_comparison_by_region(data, region_analyses, ergonomic_dir, language)
+        print(f"  {get_translation('Saved employee handling comparison by region to ergonomic_analysis/region_employee_comparisons/', language)}")
     
     # Print scores overview
     print(f"\n{get_translation('Ergonomic Scores Overview:', language)}")

@@ -108,6 +108,10 @@ TRANSLATIONS = {
         'Transition Count': 'Anzahl Übergänge',
         'Percentage': 'Prozentsatz',
         'Hours': 'Stunden',
+        'Score': 'Punktzahl',
+        'Total Hours': 'Gesamtstunden',
+        'Employees': 'Mitarbeiter',
+        'Total': 'Gesamt',
         
         # Activity names
         'Walk': 'Gehen',
@@ -134,6 +138,15 @@ TRANSLATIONS = {
         'Transition Frequency': 'Übergangshäufigkeit',
         'Solid lines: Adjacent regions | Dotted lines: Non-adjacent regions':
             'Durchgezogene Linien: Angrenzende Bereiche | Gestrichelte Linien: Nicht angrenzende Bereiche',
+        'Employee Handling Activities in Top Regions': 'Handhabungsaktivitäten der Mitarbeiter in Top-Bereichen',
+        'Generated employee handling comparison for region': 'Mitarbeiter-Handhabungsvergleich erstellt für Bereich',
+        'Generated combined handling comparison for all regions': 'Kombinierter Handhabungsvergleich für alle Bereiche erstellt',
+        'Region Usage vs. Ergonomic Score': 'Bereichsnutzung vs. Ergonomie-Punktzahl',
+        'Usage (hours)': 'Nutzung (Stunden)',
+        'Percentage of Time (%)': 'Prozentsatz der Zeit (%)',
+        'Employee Handling Activities': 'Handhabungsaktivitäten der Mitarbeiter',
+        'Saved employee handling comparison by region to ergonomic_analysis/region_employee_comparisons/': 'Mitarbeiter-Handhabungsvergleich nach Bereich gespeichert in ergonomic_analysis/region_employee_comparisons/',
+        'Generating employee handling comparison by region...': 'Erstelle Mitarbeiter-Handhabungsvergleich nach Bereich...',
         
         # Console outputs and errors
         'Error: Employee {0} not found in the data': 'Fehler: Mitarbeiter {0} nicht in Daten gefunden',
