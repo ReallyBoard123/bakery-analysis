@@ -23,7 +23,6 @@ import pandas as pd
 import re
 from datetime import timedelta
 from matplotlib.lines import Line2D
-import json
 
 # Configuration parameters that can be adjusted
 CONFIG = {
@@ -459,27 +458,11 @@ def create_employee_path_by_source(floor_plan, region_coordinates, data, vis_dir
                 transition_counts[(prev_region, row['region'])] += 1
             prev_region = row['region']
 
-        # Load floor plan connections from JSON file
-        connections_path = Path('floor-plan-connections-2025-04-09.json')
-        try:
-            with open(connections_path, 'r') as f:
-                floor_plan_connections = json.load(f)
-        except Exception as e:
-            print(f"Error loading floor plan connections: {e}")
-            floor_plan_connections = {}
-
-        # Filter transitions based on floor plan connections
-        valid_transitions = {
-            (from_region, to_region): count
-            for (from_region, to_region), count in transition_counts.items()
-            if from_region in floor_plan_connections and to_region in floor_plan_connections[from_region]
-        }
-
-        # Sort transitions by count in ascending order to ensure thinner lines are drawn first
-        sorted_transitions = sorted(valid_transitions.items(), key=lambda x: x[1])
-
         # Calculate max transition count for line width scaling
         max_count = max(transition_counts.values()) if transition_counts else 1
+
+        # Sort transitions by count in descending order to ensure thicker lines are drawn on top
+        sorted_transitions = sorted(transition_counts.items(), key=lambda x: x[1], reverse=True)
 
         # Plot transitions with line thickness representing count
         for (from_region, to_region), count in sorted_transitions:
@@ -499,7 +482,7 @@ def create_employee_path_by_source(floor_plan, region_coordinates, data, vis_dir
                 line_color = cfg['path_colors'][color_idx]
 
                 # Assign z-order based on count (higher count gets higher z-order)
-                z_order = count
+                z_order = 1 + count / max_count
 
                 # Draw arrow with higher z-order for more frequent transitions
                 plt.annotate('', 
