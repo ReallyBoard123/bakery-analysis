@@ -128,20 +128,19 @@ def analyze_region_visits(employee_data):
     }
     
     current_region = None
-    visit_start_idx = None
+    visit_start_time = None
     visit_rows = []
     
     # Process each record sequentially
-    for idx, row in employee_data.iterrows():
+    for _, row in employee_data.iterrows():
         if current_region is None:
             # First record - start tracking this region
             current_region = row['region']
-            visit_start_idx = idx
+            visit_start_time = row['startTime']
             visit_rows = [row]
         elif row['region'] != current_region:
             # Region changed - analyze the completed visit
-            visit_end_idx = idx - 1
-            visit_end_row = employee_data.loc[visit_end_idx]
+            visit_end_time = visit_rows[-1]['endTime']
             
             # Calculate visit duration and activities
             visit_duration = sum(r['duration'] for r in visit_rows)
@@ -155,8 +154,8 @@ def analyze_region_visits(employee_data):
             # Create visit record
             visit = {
                 'region': current_region,
-                'start_time': visit_rows[0]['startTime'],
-                'end_time': visit_rows[-1]['endTime'],
+                'start_time': visit_start_time,
+                'end_time': visit_end_time,
                 'duration': visit_duration,
                 'activity_durations': activity_durations,
                 'rows': visit_rows,
@@ -173,7 +172,7 @@ def analyze_region_visits(employee_data):
             
             # Start tracking new region
             current_region = row['region']
-            visit_start_idx = idx
+            visit_start_time = row['startTime']
             visit_rows = [row]
         else:
             # Same region - continue tracking this visit
@@ -191,7 +190,7 @@ def analyze_region_visits(employee_data):
         
         visit = {
             'region': current_region,
-            'start_time': visit_rows[0]['startTime'],
+            'start_time': visit_start_time,
             'end_time': visit_rows[-1]['endTime'],
             'duration': visit_duration,
             'activity_durations': activity_durations,
@@ -492,6 +491,24 @@ def create_employee_path_visualization(employee_id, shift, paths, floor_plan_dat
     
     return str(output_path)
 
+def numpy_to_python(obj):
+    """Convert NumPy data types to Python native types for JSON serialization"""
+    if isinstance(obj, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, 
+                         np.int64, np.uint8, np.uint16, np.uint32, np.uint64)):
+        return int(obj)
+    elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
+        return float(obj)
+    elif isinstance(obj, (np.ndarray,)):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {numpy_to_python(k): numpy_to_python(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [numpy_to_python(i) for i in obj]
+    elif isinstance(obj, tuple):
+        return tuple(numpy_to_python(i) for i in obj)
+    else:
+        return obj
+
 def analyze_employee_data(data, floor_plan_data, output_dir):
     """
     Analyze walking patterns for all employees and shifts
@@ -556,7 +573,7 @@ def analyze_employee_data(data, floor_plan_data, output_dir):
             'employee_id': employee_id,
             'shift': shift,
             'total_records': len(employee_data),
-            'total_duration': employee_data['duration'].sum(),
+            'total_duration': float(employee_data['duration'].sum()),
             'region_visits': {
                 'meaningful': len(visit_analysis['meaningful_visits']),
                 'transitions': len(visit_analysis['transitions']),
@@ -565,9 +582,9 @@ def analyze_employee_data(data, floor_plan_data, output_dir):
             'top_regions': [
                 {
                     'region': region_info['region'],
-                    'total_duration': region_info['total_duration'],
-                    'meaningful_visits': region_info['meaningful_visits'],
-                    'avg_meaningful_duration': region_info['avg_meaningful_duration'],
+                    'total_duration': float(region_info['total_duration']),
+                    'meaningful_visits': int(region_info['meaningful_visits']),
+                    'avg_meaningful_duration': float(region_info['avg_meaningful_duration']),
                     'formatted_avg_duration': format_seconds(region_info['avg_meaningful_duration']),
                     'formatted_total_duration': format_seconds(region_info['total_duration'])
                 }
@@ -577,12 +594,15 @@ def analyze_employee_data(data, floor_plan_data, output_dir):
                 {
                     'from_region': from_region,
                     'to_region': to_region,
-                    'count': count
+                    'count': int(count)
                 }
                 for (from_region, to_region), count in visit_analysis['transition_counts'].most_common(10)
             ],
             'visualization_path': vis_path
         }
+        
+        # Convert NumPy types to Python native types
+        stats_output = numpy_to_python(stats_output)
         
         # Save to JSON
         stats_path = stats_dir / f"employee_{employee_id}_shift_{shift}_stats.json"
@@ -606,9 +626,9 @@ def analyze_employee_data(data, floor_plan_data, output_dir):
                 'employee_id': employee_id,
                 'shift': shift,
                 'region': region_info['region'],
-                'total_duration': region_info['total_duration'],
-                'meaningful_visits': region_info['meaningful_visits'],
-                'avg_meaningful_duration': region_info['avg_meaningful_duration'],
+                'total_duration': float(region_info['total_duration']),
+                'meaningful_visits': int(region_info['meaningful_visits']),
+                'avg_meaningful_duration': float(region_info['avg_meaningful_duration']),
                 'formatted_avg_duration': format_seconds(region_info['avg_meaningful_duration']),
                 'formatted_total_duration': format_seconds(region_info['total_duration'])
             })
