@@ -22,8 +22,11 @@ from src.analysis.ergonomics import (
     export_duration_factor_thresholds,
     analyze_region_ergonomics,
     generate_region_ergonomic_report,
-    run_handling_time_analysis
+    run_handling_time_analysis,
+    compare_employees_within_department,
+    compare_departments_in_specializations
 )
+
 from src.analysis.workflow import (
     analyze_walking_patterns,
     identify_workflow_patterns,

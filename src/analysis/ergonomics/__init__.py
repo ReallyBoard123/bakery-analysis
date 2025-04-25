@@ -35,7 +35,10 @@ from .reports import (
 
 from .department_analysis import (
     compare_employees_within_department,
-    compare_departments_in_specializations
+    compare_departments_in_specializations,
+    analyze_department_employees,
+    create_department_comparison_visualization,
+    create_department_specialization_visualization
 )
 
 # Main entry point
@@ -70,6 +73,9 @@ __all__ = [
     # Department Analysis
     'compare_employees_within_department',
     'compare_departments_in_specializations',
+    'analyze_department_employees',
+    'create_department_comparison_visualization',
+    'create_department_specialization_visualization',
     
     # Main
     'run_handling_time_analysis'
