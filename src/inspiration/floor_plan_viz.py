@@ -21,8 +21,9 @@ from collections import defaultdict, Counter
 from pathlib import Path
 import pandas as pd
 import re
+from datetime import timedelta
 from matplotlib.lines import Line2D
-from bakery_analysis.time_utils import format_seconds_to_hms
+import json
 
 # Configuration parameters that can be adjusted
 CONFIG = {
@@ -109,26 +110,22 @@ def create_floor_plan_visualizations(data_dict, results, vis_dir, config=None):
     
     # Create movement visualization
     create_movement_floor_plan(floor_plan, region_coordinates, region_dimensions, 
-                              results['movement'].get('valid_transitions', {}), vis_dir, cfg)
+                              results['movement']['valid_transitions'], vis_dir, cfg)
     
     # Create region heatmap
     create_region_heatmap(floor_plan, region_coordinates, region_dimensions,
                          results['activity']['region_summary'], vis_dir, cfg)
     
+    # Create bottleneck visualization
+    create_bottleneck_floor_plan(floor_plan, region_coordinates, region_dimensions,
+                                results['bottlenecks']['bottlenecks'], vis_dir, cfg)
+    
     # Create employee path visualizations by source file
-    # Check if source_file column exists
-    if 'source_file' in processed_data.columns:
-        create_employee_path_by_source(floor_plan, region_coordinates, 
-                                     processed_data, emp_path_dir, cfg)
+    create_employee_path_by_source(floor_plan, region_coordinates, 
+                                 processed_data, emp_path_dir, cfg)
     
-    # Create employee path visualizations by shift if shift column exists
-    if 'shift' in processed_data.columns:
-        create_employee_path_by_shift(floor_plan, region_coordinates,
-                                    processed_data, emp_path_dir, cfg)
-    
-    # Export invalid transitions to CSV if they exist
-    if 'invalid_transitions' in results['movement'] and results['movement']['invalid_transitions']:
-        export_invalid_transitions(results['movement']['invalid_transitions'], vis_dir)
+    # Export invalid transitions to CSV
+    export_invalid_transitions(results['movement']['invalid_transitions'], vis_dir)
 
 def create_movement_floor_plan(floor_plan, region_coordinates, region_dimensions, transitions, vis_dir, cfg):
     """
@@ -250,7 +247,7 @@ def create_region_heatmap(floor_plan, region_coordinates, region_dimensions, reg
             continue
         
         # Format duration as hh:mm:ss
-        duration_formatted = format_seconds_to_hms(duration)
+        duration_formatted = str(timedelta(seconds=int(duration)))
         
         # Get color based on duration
         color = cmap(norm(duration))
@@ -292,111 +289,219 @@ def create_region_heatmap(floor_plan, region_coordinates, region_dimensions, reg
     plt.savefig(vis_dir / 'region_heatmap_floor_plan.png', dpi=300, bbox_inches='tight')
     plt.close()
 
-def create_employee_path_by_source(floor_plan, region_coordinates, data, vis_dir, cfg):
+def create_bottleneck_floor_plan(floor_plan, region_coordinates, region_dimensions, bottlenecks, vis_dir, cfg):
     """
-    Create visualizations of employee paths by source file, with line thickness
-    representing transition frequency
+    Visualize bottlenecks on the floor plan
     """
-    print("  Creating employee path visualizations by source file...")
+    print("  Creating bottleneck visualization...")
+    
+    # Create figure
+    plt.figure(figsize=(20, 14))
+    
+    # Display the floor plan
+    img = np.array(floor_plan)
+    plt.imshow(img)
     
     # Normalize coordinates to match the image dimensions
     img_width, img_height = floor_plan.size
-    normalized_coords = {}
     
+    # Create a dictionary of bottleneck scores
+    bottleneck_scores = {}
+    for region, metrics in bottlenecks:
+        bottleneck_scores[region] = metrics['bottleneck_score']
+    
+    # Find min and max scores for colormap normalization
+    min_score = min(bottleneck_scores.values()) if bottleneck_scores else 0
+    max_score = max(bottleneck_scores.values()) if bottleneck_scores else 1
+    
+    # Create colormap
+    cmap = plt.cm.get_cmap(cfg['region_cmap'])
+    norm = plt.Normalize(vmin=min_score, vmax=max_score)
+    
+    # Draw regions with color based on bottleneck score
+    for region, (x, y) in region_coordinates.items():
+        # Get region dimensions
+        width, height = region_dimensions.get(region, (0.05, 0.05))
+        
+        # Scale coordinates and dimensions to match image
+        x_scaled = x * img_width
+        y_scaled = y * img_height
+        width_scaled = width * img_width
+        height_scaled = height * img_height
+        
+        # Get bottleneck score for this region
+        score = bottleneck_scores.get(region, 0)
+        
+        # Skip regions with very low scores (to focus on bottlenecks)
+        if score < min_score + (max_score - min_score) * 0.2:
+            continue
+        
+        # Get color based on score
+        color = cmap(norm(score))
+        
+        # Draw rectangle
+        rect = patches.Rectangle(
+            (x_scaled - width_scaled/2, y_scaled - height_scaled/2),
+            width_scaled, height_scaled,
+            linewidth=1, edgecolor='black', facecolor=color, alpha=cfg['heatmap_alpha']
+        )
+        plt.gca().add_patch(rect)
+        
+        # Add label if region is large enough
+        if width > 0.03 and height > 0.03:
+            # Format text based on configuration
+            if cfg['show_region_names']:
+                label_text = f"{region}\nScore: {score:.1f}"
+            else:
+                label_text = f"Score: {score:.1f}"
+                
+            plt.text(x_scaled, y_scaled, label_text, 
+                   fontsize=cfg['heatmap_text_size'], ha='center', va='center',
+                   bbox=dict(facecolor=cfg['text_box_color'], alpha=cfg['text_box_alpha'], edgecolor='none'))
+    
+    # Add colorbar
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=plt.gca())
+    cbar.set_label('Bottleneck Score')
+    
+    # Set title and labels
+    plt.title('Bottleneck Regions in the Bakery', fontsize=16)
+    plt.axis('off')
+    plt.tight_layout()
+    
+    # Save visualization
+    plt.savefig(vis_dir / 'bottleneck_floor_plan.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+def create_employee_path_by_source(floor_plan, region_coordinates, data, vis_dir, cfg):
+    """
+    Create visualizations of employee paths by source file, with line thickness
+    representing transition frequency. Additionally, create combined visualizations
+    for each employee across all their shifts, focusing on the top 6 regions.
+    """
+    print("  Creating employee path visualizations by source file...")
+
+    # Normalize coordinates to match the image dimensions
+    img_width, img_height = floor_plan.size
+    normalized_coords = {}
+
     for region, (x, y) in region_coordinates.items():
         normalized_coords[region] = (x * img_width, y * img_height)
-    
+
     # Group data by source file
     source_files = data['source_file'].unique()
     print(f"  Found {len(source_files)} unique source files")
-    
+
     # Extract shift information
     shift_info = get_shift_info(data)
-    
+
     # Create a visualization for each source file
     for source_file in source_files:
         # Extract employee ID from source file
         employee_id_match = re.match(r'(\d+\-[A-Z])', source_file)
         if not employee_id_match:
             continue
-            
+
         employee_id = employee_id_match.group(1)
-        
+
         # Extract date from source file
         date_match = re.search(r'(\d{4}-\d{2}-\d{2})', source_file)
         date_str = date_match.group(1) if date_match else "Unknown"
-        
+
         # Get shift info
         shift_start, shift_end = shift_info.get(source_file, ("Unknown", "Unknown"))
-        
+
         print(f"    Creating path visualization for {source_file}")
-        
+
         plt.figure(figsize=(16, 10))
-        
+
         # Display the floor plan
         img = np.array(floor_plan)
         plt.imshow(img)
-        
+
         # Get source file data
         source_data = data[data['source_file'] == source_file].sort_values('startTime')
-        
+
         # Skip if no data
         if len(source_data) == 0:
             plt.close()
             continue
-        
+
         # Calculate session duration using actual data
         if len(source_data) >= 2:
             # Use the actual first and last entries from the source file data
             start_time = source_data.iloc[0]['startTimeClock']
             end_time = source_data.iloc[-1]['endTimeClock']
-            
+
             # Calculate total duration in a readable format
             total_duration_seconds = source_data['duration'].sum()
-            total_duration = format_seconds_to_hms(total_duration_seconds)
-            
+            total_duration = str(timedelta(seconds=int(total_duration_seconds)))
+
             session_info = f"Session: {start_time} to {end_time} | Total: {total_duration}"
         else:
             session_info = "Session: Unknown"
-        
+
         # Count time spent in each region
         region_time = source_data.groupby('region')['duration'].sum()
-        
+
         # Find max time for relative size comparison
         max_time = region_time.max() if not region_time.empty else 1
-        
+
         # Track transitions between regions and count them
         transitions = []
         transition_counts = Counter()
         prev_region = None
-        
+
         for _, row in source_data.iterrows():
             if prev_region and prev_region != row['region']:
                 transitions.append((prev_region, row['region']))
                 transition_counts[(prev_region, row['region'])] += 1
             prev_region = row['region']
-        
+
+        # Load floor plan connections from JSON file
+        connections_path = Path('floor-plan-connections-2025-04-09.json')
+        try:
+            with open(connections_path, 'r') as f:
+                floor_plan_connections = json.load(f)
+        except Exception as e:
+            print(f"Error loading floor plan connections: {e}")
+            floor_plan_connections = {}
+
+        # Filter transitions based on floor plan connections
+        valid_transitions = {
+            (from_region, to_region): count
+            for (from_region, to_region), count in transition_counts.items()
+            if from_region in floor_plan_connections and to_region in floor_plan_connections[from_region]
+        }
+
+        # Sort transitions by count in ascending order to ensure thinner lines are drawn first
+        sorted_transitions = sorted(valid_transitions.items(), key=lambda x: x[1])
+
         # Calculate max transition count for line width scaling
         max_count = max(transition_counts.values()) if transition_counts else 1
-        
+
         # Plot transitions with line thickness representing count
-        for (from_region, to_region), count in transition_counts.items():
+        for (from_region, to_region), count in sorted_transitions:
             # Skip transitions with counts below threshold
             if count < cfg['min_transition_count']:
                 continue
-                
+
             if from_region in normalized_coords and to_region in normalized_coords:
                 start = normalized_coords[from_region]
                 end = normalized_coords[to_region]
-                
+
                 # Calculate normalized line width (between 1 and 5)
-                line_width = 1 + 4 * (count / max_count)
-                
+                line_width = cfg['movement_line_min_width'] + (cfg['movement_line_max_width'] - cfg['movement_line_min_width']) * (count / max_count)
+
                 # Calculate color index based on count
                 color_idx = min(int(count / max_count * (len(cfg['path_colors']) - 1)), len(cfg['path_colors']) - 1)
                 line_color = cfg['path_colors'][color_idx]
-                
-                # Draw arrow
+
+                # Assign z-order based on count (higher count gets higher z-order)
+                z_order = count
+
+                # Draw arrow with higher z-order for more frequent transitions
                 plt.annotate('', 
                           xy=end, 
                           xytext=start,
@@ -404,144 +509,125 @@ def create_employee_path_by_source(floor_plan, region_coordinates, data, vis_dir
                               arrowstyle='->', 
                               lw=line_width,
                               color=line_color,
-                              alpha=0.8
+                              alpha=0.8,
+                              zorder=z_order
                           ))
-        
+
         # Draw circles for regions, with size based on time spent
         for region, (x, y) in normalized_coords.items():
             if region in region_time:
                 time = region_time[region]
-                
+
                 # Skip regions with durations below threshold
                 if time < cfg['min_duration_threshold'] or time/max_time < cfg['min_region_relative_size']:
                     continue
-                    
+
                 # Scale circle size
                 size = cfg['path_circle_base_size'] + cfg['path_circle_scale_factor'] * (time / max_time)
-                
+
                 # Format time as hh:mm:ss
-                time_formatted = format_seconds_to_hms(time)
-                
+                time_formatted = str(timedelta(seconds=int(time)))
+
                 # Use a slightly transparent circle
                 plt.scatter(x, y, s=size, alpha=cfg['path_circle_alpha'], 
                           color=cfg['region_circle_color'], 
                           edgecolor=cfg['region_circle_edge'], linewidth=1)
-                
+
                 # Format label based on configuration
                 if cfg['show_region_names']:
                     label_text = f"{region}\n{time_formatted}"
                 else:
                     label_text = f"{time_formatted}"
-                
+
                 # Add label
                 plt.text(x, y, label_text, fontsize=cfg['heatmap_text_size'], ha='center', va='center',
                        bbox=dict(facecolor=cfg['text_box_color'], alpha=cfg['text_box_alpha'], edgecolor='none'))
-        
+
         # Create legend for line thickness
         legend_elements = [
-            Line2D([0], [0], color='gray', lw=1, label='1 transition'),
-            Line2D([0], [0], color='gray', lw=2, label='2-5 transitions'),
-            Line2D([0], [0], color='gray', lw=3, label='6-10 transitions'),
-            Line2D([0], [0], color='gray', lw=4, label='>10 transitions')
+            Line2D([0], [0], color='gray', lw=cfg['movement_line_min_width'], label='Low frequency'),
+            Line2D([0], [0], color='red', lw=cfg['movement_line_max_width'], label='High frequency')
         ]
         plt.legend(handles=legend_elements, loc='upper right')
-        
+
         # Set title and labels
         plt.title(f'Movement Path for {employee_id} - {date_str}\n'
                  f'Shift: {shift_start} to {shift_end}\n{session_info}', fontsize=14)
         plt.axis('off')
         plt.tight_layout()
-        
+
         # Create a safe filename
         safe_filename = source_file.replace(':', '_').replace('/', '_').replace('\\', '_')
-        
+
         # Save visualization
         plt.savefig(vis_dir / f'{safe_filename}_path.png', dpi=300, bbox_inches='tight')
         plt.close()
 
-def create_employee_path_by_shift(floor_plan, region_coordinates, data, vis_dir, cfg):
-    """
-    Create visualizations of employee paths by shift
-    """
-    print("  Creating employee path visualizations by shift...")
-    
-    # Skip if no shift column
-    if 'shift' not in data.columns:
-        print("  No shift column found, skipping shift-based visualizations")
-        return
-    
-    # Normalize coordinates to match the image dimensions
-    img_width, img_height = floor_plan.size
-    normalized_coords = {}
-    
-    for region, (x, y) in region_coordinates.items():
-        normalized_coords[region] = (x * img_width, y * img_height)
-    
-    # Group data by employee and shift
-    for (emp_id, shift), group in data.groupby(['id', 'shift']):
-        print(f"    Creating path visualization for {emp_id} - Shift {shift}")
-        
+    # Create combined visualizations for each employee
+    print("  Creating combined visualizations for each employee...")
+    employees = data['id'].unique()
+
+    for employee_id in employees:
+        print(f"    Creating combined path visualization for {employee_id}")
+
         plt.figure(figsize=(16, 10))
-        
+
         # Display the floor plan
         img = np.array(floor_plan)
         plt.imshow(img)
-        
-        # Sort data by time
-        emp_shift_data = group.sort_values('startTime')
-        
-        # Calculate session duration 
-        if len(emp_shift_data) >= 2:
-            # Use the actual first and last entries
-            start_time = emp_shift_data.iloc[0]['startTimeClock']
-            end_time = emp_shift_data.iloc[-1]['endTimeClock']
-            
-            # Calculate total duration
-            total_duration_seconds = emp_shift_data['duration'].sum()
-            total_duration = format_seconds_to_hms(total_duration_seconds)
-            
-            session_info = f"Session: {start_time} to {end_time} | Total: {total_duration}"
-        else:
-            session_info = "Session: Unknown"
-        
+
+        # Get all data for the employee
+        employee_data = data[data['id'] == employee_id].sort_values('startTime')
+
+        # Skip if no data
+        if len(employee_data) == 0:
+            plt.close()
+            continue
+
         # Count time spent in each region
-        region_time = emp_shift_data.groupby('region')['duration'].sum()
-        
+        region_time = employee_data.groupby('region')['duration'].sum()
+
+        # Select the top 6 regions by time spent
+        top_regions = region_time.nlargest(6).index
+
+        # Filter data to include only the top regions
+        employee_data = employee_data[employee_data['region'].isin(top_regions)]
+
         # Find max time for relative size comparison
-        max_time = region_time.max() if not region_time.empty else 1
-        
+        max_time = region_time[top_regions].max() if not region_time.empty else 1
+
         # Track transitions between regions and count them
         transitions = []
         transition_counts = Counter()
         prev_region = None
-        
-        for _, row in emp_shift_data.iterrows():
+
+        for _, row in employee_data.iterrows():
             if prev_region and prev_region != row['region']:
                 transitions.append((prev_region, row['region']))
                 transition_counts[(prev_region, row['region'])] += 1
             prev_region = row['region']
-        
+
         # Calculate max transition count for line width scaling
         max_count = max(transition_counts.values()) if transition_counts else 1
-        
+
         # Plot transitions with line thickness representing count
         for (from_region, to_region), count in transition_counts.items():
             # Skip transitions with counts below threshold
             if count < cfg['min_transition_count']:
                 continue
-                
+
             if from_region in normalized_coords and to_region in normalized_coords:
                 start = normalized_coords[from_region]
                 end = normalized_coords[to_region]
-                
+
                 # Calculate normalized line width (between 1 and 5)
-                line_width = 1 + 4 * (count / max_count)
-                
+                line_width = cfg['movement_line_min_width'] + (cfg['movement_line_max_width'] - cfg['movement_line_min_width']) * (count / max_count)
+
                 # Calculate color index based on count
                 color_idx = min(int(count / max_count * (len(cfg['path_colors']) - 1)), len(cfg['path_colors']) - 1)
                 line_color = cfg['path_colors'][color_idx]
-                
-                # Draw arrow
+
+                # Draw arrow with higher z-order for more frequent transitions
                 plt.annotate('', 
                           xy=end, 
                           xytext=start,
@@ -549,58 +635,47 @@ def create_employee_path_by_shift(floor_plan, region_coordinates, data, vis_dir,
                               arrowstyle='->', 
                               lw=line_width,
                               color=line_color,
-                              alpha=0.8
+                              alpha=0.8,
+                              zorder=2 if count == max_count else 1
                           ))
-        
+
         # Draw circles for regions, with size based on time spent
         for region, (x, y) in normalized_coords.items():
             if region in region_time:
                 time = region_time[region]
-                
+
                 # Skip regions with durations below threshold
                 if time < cfg['min_duration_threshold'] or time/max_time < cfg['min_region_relative_size']:
                     continue
-                    
+
                 # Scale circle size
                 size = cfg['path_circle_base_size'] + cfg['path_circle_scale_factor'] * (time / max_time)
-                
+
                 # Format time as hh:mm:ss
-                time_formatted = format_seconds_to_hms(time)
-                
+                time_formatted = str(timedelta(seconds=int(time)))
+
                 # Use a slightly transparent circle
                 plt.scatter(x, y, s=size, alpha=cfg['path_circle_alpha'], 
                           color=cfg['region_circle_color'], 
                           edgecolor=cfg['region_circle_edge'], linewidth=1)
-                
+
                 # Format label based on configuration
                 if cfg['show_region_names']:
                     label_text = f"{region}\n{time_formatted}"
                 else:
                     label_text = f"{time_formatted}"
-                
+
                 # Add label
                 plt.text(x, y, label_text, fontsize=cfg['heatmap_text_size'], ha='center', va='center',
                        bbox=dict(facecolor=cfg['text_box_color'], alpha=cfg['text_box_alpha'], edgecolor='none'))
-        
-        # Create legend for line thickness
-        legend_elements = [
-            Line2D([0], [0], color='gray', lw=1, label='1 transition'),
-            Line2D([0], [0], color='gray', lw=2, label='2-5 transitions'),
-            Line2D([0], [0], color='gray', lw=3, label='6-10 transitions'),
-            Line2D([0], [0], color='gray', lw=4, label='>10 transitions')
-        ]
-        plt.legend(handles=legend_elements, loc='upper right')
-        
+
         # Set title and labels
-        plt.title(f'Movement Path for {emp_id} - Shift {shift}\n{session_info}', fontsize=14)
+        plt.title(f'Combined Movement Path for {employee_id} (Top 6 Regions)', fontsize=14)
         plt.axis('off')
         plt.tight_layout()
-        
-        # Create a safe filename
-        safe_filename = f"{emp_id}_shift_{shift}"
-        
+
         # Save visualization
-        plt.savefig(vis_dir / f'{safe_filename}_path.png', dpi=300, bbox_inches='tight')
+        plt.savefig(vis_dir / f'{employee_id}_combined_path_top6.png', dpi=300, bbox_inches='tight')
         plt.close()
 
 def get_shift_info(data):
@@ -614,22 +689,13 @@ def get_shift_info(data):
     """
     shift_info = {}
     
-    # Default shift time
+    # Default shift time (from the metadata - night shift)
     default_start = "22:00:00"
     default_end = "13:00:00"
     
-    # If we have shift column, use it to group files by shift
-    if 'shift' in data.columns and 'source_file' in data.columns:
-        # Group source files by shift
-        shift_mappings = data.groupby('source_file')['shift'].first().to_dict()
-        
-        for source_file, shift in shift_mappings.items():
-            # Use default times for now, could be enhanced with actual shift times
-            shift_info[source_file] = (default_start, default_end)
-    else:
-        # Group data by source file
-        for source_file in data['source_file'].unique():
-            shift_info[source_file] = (default_start, default_end)
+    # Group data by source file
+    for source_file in data['source_file'].unique():
+        shift_info[source_file] = (default_start, default_end)
     
     return shift_info
 
@@ -673,12 +739,12 @@ def create_custom_visualizations(data_dict, results, vis_dir):
     Example of creating visualizations with custom configuration
     """
     custom_config = {
-        'show_region_names': True,
+        'show_region_names': False,
         'min_duration_threshold': 5,
         'min_region_relative_size': 0.1,
         'heatmap_alpha': 0.8,
         'path_circle_base_size': 30,
-        'min_transition_count': 2
+        'min_transition_count': 50
     }
     
     create_floor_plan_visualizations(data_dict, results, vis_dir, custom_config)
