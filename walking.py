@@ -20,7 +20,7 @@ from PIL import Image
 
 # Constants
 MEANINGFUL_PRESENCE_THRESHOLD = 15  # seconds
-TOP_REGIONS_COUNT = 8
+TOP_REGIONS_COUNT = 10
 
 def load_data(data_path):
     """Load and preprocess the bakery tracking data"""
