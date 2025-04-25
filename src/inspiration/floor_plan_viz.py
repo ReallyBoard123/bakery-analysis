@@ -571,7 +571,7 @@ def create_employee_path_by_source(floor_plan, region_coordinates, data, vis_dir
         region_time = employee_data.groupby('region')['duration'].sum()
 
         # Select the top 6 regions by time spent
-        top_regions = region_time.nlargest(6).index
+        top_regions = region_time.nlargest(10).index
 
         # Filter data to include only the top regions
         employee_data = employee_data[employee_data['region'].isin(top_regions)]
@@ -727,7 +727,7 @@ def create_custom_visualizations(data_dict, results, vis_dir):
         'min_region_relative_size': 0.1,
         'heatmap_alpha': 0.8,
         'path_circle_base_size': 30,
-        'min_transition_count': 50
+        'min_transition_count': 30
     }
     
     create_floor_plan_visualizations(data_dict, results, vis_dir, custom_config)
