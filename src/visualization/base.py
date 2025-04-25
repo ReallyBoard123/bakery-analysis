@@ -1,5 +1,5 @@
 """
-Base Visualization Module
+Base Visualization Module (Updated)
 
 Provides base functionality and styling for all visualizations.
 """
@@ -10,16 +10,16 @@ from matplotlib.colors import LinearSegmentedColormap
 from pathlib import Path
 from ..utils.translation_utils import get_translation
 
-# Standard activity order
-ACTIVITY_ORDER = ['Walk', 'Stand', 'Handle up', 'Handle center', 'Handle down']
+# Updated standardized activity order per client requirements
+ACTIVITY_ORDER = ['Walk', 'Stand', 'Handle center', 'Handle down', 'Handle up']
 
-# Standardized colors for activities
+# Updated standardized colors for activities per client requirements
 ACTIVITY_COLORS = {
-    'Walk': '#2D5F91',       # Blue
-    'Stand': '#FFAA00',      # Orange
-    'Handle up': '#E8655F',  # Red
-    'Handle center': '#48B7B4', # Teal
-    'Handle down': '#96BEE6' # Light blue
+    'Walk': '#156082',       # Blue
+    'Stand': '#A6A6A6',      # Grey
+    'Handle center': '#F1A983',  # Light orange
+    'Handle down': '#C00000',  # Red
+    'Handle up': '#FFC000'   # Yellow
 }
 
 # Standardized colors for departments
@@ -40,7 +40,7 @@ EMPLOYEE_COLORS = {
 }
 
 # Legacy color palette for backward compatibility
-BAKERY_COLORS = ['#2D5F91', '#FFAA00', '#E8655F', '#48B7B4', '#96BEE6', '#8C6464']
+BAKERY_COLORS = ['#156082', '#A6A6A6', '#F1A983', '#C00000', '#FFC000', '#8C6464']
 
 def set_visualization_style():
     """
@@ -113,7 +113,7 @@ def get_bakery_cmap():
     """
     return LinearSegmentedColormap.from_list(
         'bakery', 
-        ['#FFFFFF', '#E8EEF7', '#96BEE6', '#2D5F91', '#1A365D']
+        ['#FFFFFF', '#E8EEF7', '#96BEE6', '#156082', '#0A324D']
     )
 
 def save_figure(fig, output_path, dpi=300, bbox_inches='tight'):
