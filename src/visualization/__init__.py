@@ -29,9 +29,20 @@ from .floor_plan_vis import (
     create_movement_flow
 )
 
+from .common_vis import (
+    plot_activity_by_day,
+    plot_employee_summary,
+    plot_department_comparison,
+    plot_shift_comparison,
+    plot_employee_activities_by_date,
+    plot_activity_breakdown_pie,
+    plot_region_activity_heatmap
+)
+
 __all__ = [
     'activity_vis',
     'base',
     'employee_region_vis',
-    'floor_plan_vis'
+    'floor_plan_vis',
+    'common_vis'
 ]

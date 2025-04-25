@@ -45,6 +45,7 @@ from src.visualization.activity_vis import (
 )
 from src.visualization.floor_plan_vis import create_region_heatmap
 from src.visualization.employee_region_vis import create_employee_region_heatmap
+from visualization.common_vis import plot_activity_breakdown_pie, plot_activity_by_day, plot_department_comparison, plot_employee_activities_by_date, plot_employee_summary, plot_region_activity_heatmap, plot_shift_comparison
 
 def parse_arguments():
     """Parse command line arguments"""
@@ -72,6 +73,7 @@ def parse_arguments():
     parser.add_argument('--step5', action='store_true', help='Run statistical analysis')
     parser.add_argument('--step6', action='store_true', help='Run regional activity analysis')
     parser.add_argument('--step7', action='store_true', help='Run ergonomic analysis')
+    parser.add_argument('--step8', action='store_true', help='Run common visualizations')
     parser.add_argument('--step9', action='store_true', help='Run handling time analysis')
     parser.add_argument('--employee', type=str, help='Specific employee ID to analyze (e.g., 32-A)')
     parser.add_argument('--department', type=str, choices=['Bread', 'Cake'], 
@@ -227,7 +229,7 @@ def main():
     
     # Check if any step is specified, otherwise run all steps
     run_all = not (args.step1 or args.step2 or args.step3 or args.step4 or 
-                  args.step5 or args.step6 or args.step7 or args.step9 or
+                  args.step5 or args.step6 or args.step7 or args.step8 or args.step9 or
                   args.analysisonly or args.ergonomicsonly or args.handlinganalysis)
     
     # Check required files
@@ -397,6 +399,76 @@ def main():
         print(f"=== 7. {get_translation('Ergonomic Analysis', language)} ===")
         
         run_ergonomic_analysis(data, output_path, args.employee, language)
+        
+    # 8. Common Visualizations
+    if run_all or args.step8:
+        print("\n" + "=" * 40)
+    print(f"=== 8. {get_translation('Common Visualizations', language)} ===")
+    
+    # Create directory for common visualizations
+    common_vis_dir = ensure_dir_exists(vis_dir / 'common')
+    
+    # Activity by day
+    print(f"  {get_translation('Generating activity by day visualization...', language)}")
+    plot_activity_by_day(data, save_path=common_vis_dir / 'activity_by_day.png', language=language)
+    
+    # Employee summary by department
+    print(f"  {get_translation('Generating employee summary visualization...', language)}")
+    plot_employee_summary(data, save_path=common_vis_dir / 'employee_summary.png', language=language)
+    
+    # Department comparison
+    print(f"  {get_translation('Generating department comparison visualization...', language)}")
+    plot_department_comparison(data, save_path=common_vis_dir / 'department_comparison.png', language=language)
+    
+    # Shift comparison
+    print(f"  {get_translation('Generating shift comparison visualization...', language)}")
+    plot_shift_comparison(data, save_path=common_vis_dir / 'shift_comparison.png', language=language)
+    
+    # Activity breakdown pie chart
+    print(f"  {get_translation('Generating overall activity breakdown...', language)}")
+    plot_activity_breakdown_pie(data, save_path=common_vis_dir / 'activity_breakdown.png', language=language)
+    
+    # If employee is specified, create employee-specific visualizations
+    if args.employee:
+        employee_id = args.employee
+        print(f"  {get_translation('Generating visualizations for employee {0}...', language).format(employee_id)}")
+        
+        # Employee activities by date
+        plot_employee_activities_by_date(
+            data, 
+            employee_id=employee_id, 
+            save_path=common_vis_dir / f"{employee_id}_activities_by_date.png",
+            language=language
+        )
+        
+        # Employee activity breakdown
+        plot_activity_breakdown_pie(
+            data, 
+            filter_by='id', 
+            filter_value=employee_id,
+            save_path=common_vis_dir / f"{employee_id}_activity_breakdown.png",
+            language=language
+        )
+    
+    # If department is specified, create department-specific visualizations
+    if args.department:
+        department = args.department
+        print(f"  {get_translation('Generating visualizations for {0} department...', language).format(get_translation(department, language))}")
+        
+        # Department activity breakdown
+        plot_activity_breakdown_pie(
+            data, 
+            filter_by='department', 
+            filter_value=department,
+            save_path=common_vis_dir / f"{department.lower()}_activity_breakdown.png",
+            language=language
+        )
+    
+    # Region activity heatmap
+    print(f"  {get_translation('Generating region activity heatmap...', language)}")
+    plot_region_activity_heatmap(data, save_path=common_vis_dir / 'region_activity_heatmap.png', language=language)
+    
+    print(f"  {get_translation('Saved common visualizations to visualizations/common/', language)}")
     
     # 9. Handling Time Analysis
     if run_all or args.step9:
@@ -429,6 +501,9 @@ def main():
         print(f"6. {vis_dir}/regional_activity_analysis/ - {get_translation('Activity breakdown by region per employee', language)}")
     if run_all or args.step7:
         print(f"7. {output_path}/ergonomic_analysis/ - {get_translation('Ergonomic assessment reports', language)}")
+    # Add to output summary
+    if run_all or args.step8:
+        print(f"8. {vis_dir}/common/ - {get_translation('Common visualizations', language)}")
     if run_all or args.step9:
         print(f"9. {output_path}/handling_analysis/ - {get_translation('Handling time position analysis', language)}")
     

@@ -5,6 +5,7 @@ Provides translations for text used in visualizations and reports.
 """
 
 # Define translations dictionary
+# Define translations dictionary
 TRANSLATIONS = {
     'en': {
         # Main titles
@@ -26,6 +27,7 @@ TRANSLATIONS = {
         'Transition Count': 'Transition Count',
         'Percentage': 'Percentage',
         'Hours': 'Hours',
+        'Date': 'Date',
         
         # Activity names
         'Walk': 'Walk',
@@ -40,6 +42,7 @@ TRANSLATIONS = {
         'Bread Department': 'Bread Department',
         'Cake Department': 'Cake Department',
         'All Departments': 'All Departments',
+        'Department': 'Department',
         
         # Other common phrases
         'Employee': 'Employee',
@@ -52,6 +55,31 @@ TRANSLATIONS = {
         'Transition Frequency': 'Transition Frequency',
         'Solid lines: Adjacent regions | Dotted lines: Non-adjacent regions':
             'Solid lines: Adjacent regions | Dotted lines: Non-adjacent regions',
+        'of total': 'of total',
+        
+        # New visualization titles
+        'Total Activity Duration by Day': 'Total Activity Duration by Day',
+        'Daily Activities - Employee {0}': 'Daily Activities - Employee {0}',
+        'Daily Activities - All Employees': 'Daily Activities - All Employees',
+        'Activity Breakdown - {0}: {1}': 'Activity Breakdown - {0}: {1}',
+        'Activity Breakdown - All Data': 'Activity Breakdown - All Data',
+        'Total Duration by Employee': 'Total Duration by Employee',
+        'Activity Distribution by Department': 'Activity Distribution by Department',
+        'Activity Distribution by Shift': 'Activity Distribution by Shift',
+        'Activity Distribution Across Top Regions': 'Activity Distribution Across Top Regions',
+        'Common Visualizations': 'Common Visualizations',
+        
+        # New visualization messages
+        'Generating activity by day visualization...': 'Generating activity by day visualization...',
+        'Generating employee summary visualization...': 'Generating employee summary visualization...',
+        'Generating department comparison visualization...': 'Generating department comparison visualization...',
+        'Generating shift comparison visualization...': 'Generating shift comparison visualization...',
+        'Generating overall activity breakdown...': 'Generating overall activity breakdown...',
+        'Generating visualizations for employee {0}...': 'Generating visualizations for employee {0}...',
+        'Generating visualizations for {0} department...': 'Generating visualizations for {0} department...',
+        'Generating region activity heatmap...': 'Generating region activity heatmap...',
+        'Saved common visualizations to visualizations/common/': 'Saved common visualizations to visualizations/common/',
+        'Common visualizations': 'Common visualizations',
         
         # Console outputs and errors
         'Error: Employee {0} not found in the data': 'Error: Employee {0} not found in the data',
@@ -87,6 +115,11 @@ TRANSLATIONS = {
         'Activity Breakdown by Employee in this Region': 'Activity Breakdown by Employee in this Region',
         'Activity Percentage (%)': 'Activity Percentage (%)',
         'Region Ergonomic Assessment': 'Region Ergonomic Assessment',
+        
+        # Quality indicators
+        'Poor': 'Poor',
+        'Fair': 'Fair',
+        'Good': 'Good',
     },
     'de': {
         # Main titles
@@ -108,10 +141,7 @@ TRANSLATIONS = {
         'Transition Count': 'Anzahl Übergänge',
         'Percentage': 'Prozentsatz',
         'Hours': 'Stunden',
-        'Score': 'Punktzahl',
-        'Total Hours': 'Gesamtstunden',
-        'Employees': 'Mitarbeiter',
-        'Total': 'Gesamt',
+        'Date': 'Datum',
         
         # Activity names
         'Walk': 'Gehen',
@@ -126,6 +156,7 @@ TRANSLATIONS = {
         'Bread Department': 'Brotabteilung',
         'Cake Department': 'Kuchenabteilung',
         'All Departments': 'Alle Abteilungen',
+        'Department': 'Abteilung',
         
         # Other common phrases
         'Employee': 'Mitarbeiter',
@@ -138,15 +169,31 @@ TRANSLATIONS = {
         'Transition Frequency': 'Übergangshäufigkeit',
         'Solid lines: Adjacent regions | Dotted lines: Non-adjacent regions':
             'Durchgezogene Linien: Angrenzende Bereiche | Gestrichelte Linien: Nicht angrenzende Bereiche',
-        'Employee Handling Activities in Top Regions': 'Handhabungsaktivitäten der Mitarbeiter in Top-Bereichen',
-        'Generated employee handling comparison for region': 'Mitarbeiter-Handhabungsvergleich erstellt für Bereich',
-        'Generated combined handling comparison for all regions': 'Kombinierter Handhabungsvergleich für alle Bereiche erstellt',
-        'Region Usage vs. Ergonomic Score': 'Bereichsnutzung vs. Ergonomie-Punktzahl',
-        'Usage (hours)': 'Nutzung (Stunden)',
-        'Percentage of Time (%)': 'Prozentsatz der Zeit (%)',
-        'Employee Handling Activities': 'Handhabungsaktivitäten der Mitarbeiter',
-        'Saved employee handling comparison by region to ergonomic_analysis/region_employee_comparisons/': 'Mitarbeiter-Handhabungsvergleich nach Bereich gespeichert in ergonomic_analysis/region_employee_comparisons/',
-        'Generating employee handling comparison by region...': 'Erstelle Mitarbeiter-Handhabungsvergleich nach Bereich...',
+        'of total': 'der Gesamtzeit',
+        
+        # New visualization titles
+        'Total Activity Duration by Day': 'Gesamtaktivitätsdauer nach Tag',
+        'Daily Activities - Employee {0}': 'Tägliche Aktivitäten - Mitarbeiter {0}',
+        'Daily Activities - All Employees': 'Tägliche Aktivitäten - Alle Mitarbeiter',
+        'Activity Breakdown - {0}: {1}': 'Aktivitätsaufschlüsselung - {0}: {1}',
+        'Activity Breakdown - All Data': 'Aktivitätsaufschlüsselung - Alle Daten',
+        'Total Duration by Employee': 'Gesamtdauer nach Mitarbeiter',
+        'Activity Distribution by Department': 'Aktivitätsverteilung nach Abteilung',
+        'Activity Distribution by Shift': 'Aktivitätsverteilung nach Schicht',
+        'Activity Distribution Across Top Regions': 'Aktivitätsverteilung über die wichtigsten Regionen',
+        'Common Visualizations': 'Allgemeine Visualisierungen',
+        
+        # New visualization messages
+        'Generating activity by day visualization...': 'Generiere Aktivität nach Tag Visualisierung...',
+        'Generating employee summary visualization...': 'Generiere Mitarbeiterzusammenfassung Visualisierung...',
+        'Generating department comparison visualization...': 'Generiere Abteilungsvergleich Visualisierung...',
+        'Generating shift comparison visualization...': 'Generiere Schichtvergleich Visualisierung...',
+        'Generating overall activity breakdown...': 'Generiere Gesamtaktivitätsaufschlüsselung...',
+        'Generating visualizations for employee {0}...': 'Generiere Visualisierungen für Mitarbeiter {0}...',
+        'Generating visualizations for {0} department...': 'Generiere Visualisierungen für Abteilung {0}...',
+        'Generating region activity heatmap...': 'Generiere Regionsaktivitäts-Heatmap...',
+        'Saved common visualizations to visualizations/common/': 'Allgemeine Visualisierungen gespeichert in visualizations/common/',
+        'Common visualizations': 'Allgemeine Visualisierungen',
         
         # Console outputs and errors
         'Error: Employee {0} not found in the data': 'Fehler: Mitarbeiter {0} nicht in Daten gefunden',
@@ -194,7 +241,27 @@ TRANSLATIONS = {
         'Contribution (%)': 'Beitrag (%)',
         'Activity Breakdown by Employee in this Region': 'Aktivitätsaufschlüsselung nach Mitarbeiter in diesem Bereich',
         'Activity Percentage (%)': 'Aktivitätsprozentsatz (%)',
-        'Region Ergonomic Assessment': 'Ergonomische Bewertung des Bereichs'
+        'Region Ergonomic Assessment': 'Ergonomische Bewertung des Bereichs',
+        
+        # Quality indicators
+        'Poor': 'Schlecht',
+        'Fair': 'Mäßig',
+        'Good': 'Gut',
+        
+        # Other specialized terms
+        'Score': 'Punktzahl',
+        'Total Hours': 'Gesamtstunden',
+        'Employees': 'Mitarbeiter',
+        'Total': 'Gesamt',
+        'Employee Handling Activities in Top Regions': 'Handhabungsaktivitäten der Mitarbeiter in Top-Bereichen',
+        'Generated employee handling comparison for region': 'Mitarbeiter-Handhabungsvergleich erstellt für Bereich',
+        'Generated combined handling comparison for all regions': 'Kombinierter Handhabungsvergleich für alle Bereiche erstellt',
+        'Region Usage vs. Ergonomic Score': 'Bereichsnutzung vs. Ergonomie-Punktzahl',
+        'Usage (hours)': 'Nutzung (Stunden)',
+        'Percentage of Time (%)': 'Prozentsatz der Zeit (%)',
+        'Employee Handling Activities': 'Handhabungsaktivitäten der Mitarbeiter',
+        'Saved employee handling comparison by region to ergonomic_analysis/region_employee_comparisons/': 'Mitarbeiter-Handhabungsvergleich nach Bereich gespeichert in ergonomic_analysis/region_employee_comparisons/',
+        'Generating employee handling comparison by region...': 'Erstelle Mitarbeiter-Handhabungsvergleich nach Bereich...',
     }
 }
 
