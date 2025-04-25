@@ -8,8 +8,6 @@ Contains modules for statistical analysis and ergonomics analysis of employee da
 from .statistical import (
     analyze_employee_differences,
     analyze_ergonomic_patterns,
-    analyze_movement_patterns,
-    analyze_productivity_rhythm,
     compare_shifts
 )
 
