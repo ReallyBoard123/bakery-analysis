@@ -15,8 +15,10 @@ from src.utils.file_utils import ensure_dir_exists
 from src.utils.data_utils import load_sensor_data, classify_departments
 from src.utils.time_utils import format_seconds_to_hms
 
-# Import activity-specific analysis modules
+# Import walking analysis module
 from src.analysis.activity.walking import analyze_walking_patterns
+
+# Import other activity-specific analysis modules
 from src.analysis.activity.stand import analyze_standing_patterns
 from src.analysis.activity.up import analyze_handling_up
 from src.analysis.activity.down import analyze_handling_down
@@ -34,12 +36,16 @@ def parse_arguments():
     parser.add_argument('--handle_up', action='store_true', help='Run handle-up analysis')
     parser.add_argument('--handle_down', action='store_true', help='Run handle-down analysis')
     parser.add_argument('--employee', type=str, help='Specific employee ID to analyze')
+    parser.add_argument('--focus_employees', type=str, nargs='+', 
+                      help='List of employee IDs to focus on (e.g., 32-D 32-G)')
     parser.add_argument('--department', type=str, choices=['Bread', 'Cake'], 
                       help='Department to analyze')
     parser.add_argument('--exploratory', action='store_true', 
                       help='Run exploratory analysis before detailed analysis')
     parser.add_argument('--german', action='store_true', 
                       help='Generate visualizations and reports in German')
+    parser.add_argument('--detailed_walking', action='store_true',
+                      help='Run enhanced walking analysis with detailed breakdowns')
     
     return parser.parse_args()
 
@@ -127,7 +133,7 @@ def main():
     language = 'de' if args.german else 'en'
     
     # Check if any analysis is specified, otherwise run all
-    run_all = not (args.walking or args.standing or args.handle_up or args.handle_down)
+    run_all = not (args.walking or args.standing or args.handle_up or args.handle_down or args.detailed_walking)
     
     # Create output directory
     output_path = ensure_dir_exists(args.output)
@@ -164,15 +170,34 @@ def main():
         data = data[data['department'] == args.department]
         print(f"Filtered to {args.department} department: {len(data)} records")
     
+    # Set up focus employees list
+    focus_employees = None
+    if args.focus_employees:
+        focus_employees = args.focus_employees
+        print(f"Focus analysis on employees: {', '.join(focus_employees)}")
+    elif args.employee:
+        focus_employees = [args.employee]
+    
     # Run exploratory analysis if requested
     if args.exploratory:
         run_exploratory_analysis(data, output_path)
     
     # Run walking analysis
     if run_all or args.walking:
-        print("\n=== Running Walking Analysis ===")
+        print("\n=== Running Standard Walking Analysis ===")
         walking_output = ensure_dir_exists(output_path / 'walking')
         analyze_walking_patterns(data, walking_output, language=language)
+    
+    # Run detailed walking analysis if requested
+    if run_all or args.detailed_walking:
+        print("\n=== Running Enhanced Walking Analysis ===")
+        detailed_walking_output = ensure_dir_exists(output_path / 'enhanced_walking')
+        
+        # Import the enhanced walking analysis function
+        from src.analysis.activity.enhanced_walking import analyze_walking_patterns as analyze_enhanced_walking
+        
+        analyze_enhanced_walking(data, detailed_walking_output, language=language, focus_employees=focus_employees)
+        print(f"Enhanced walking analysis complete. Results saved to {detailed_walking_output}")
     
     # Run standing analysis
     if run_all or args.standing:
@@ -199,6 +224,11 @@ def main():
     print("\n=== Activity Analysis Complete ===")
     print(f"Execution time: {execution_time:.2f} seconds")
     print(f"Results saved to: {output_path}")
+    
+    # Print usage instructions for the enhanced walking analysis
+    if not args.detailed_walking and not run_all:
+        print("\nTo run enhanced walking analysis with detailed breakdowns:")
+        print(f"  python activity.py --detailed_walking --focus_employees 32-D 32-G --output {args.output}")
 
 if __name__ == "__main__":
     sys.exit(main())
