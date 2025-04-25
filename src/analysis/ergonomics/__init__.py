@@ -29,8 +29,7 @@ from .reports import (
     generate_region_ergonomic_report,
     generate_all_employees_comparison,
     generate_all_regions_comparison,
-    generate_circular_packing_visualization,
-    generate_employee_handling_comparison_by_region
+    generate_circular_packing_visualization
 )
 
 from .department_analysis import (
@@ -68,7 +67,6 @@ __all__ = [
     'generate_all_employees_comparison',
     'generate_all_regions_comparison',
     'generate_circular_packing_visualization',
-    'generate_employee_handling_comparison_by_region',
     
     # Department Analysis
     'compare_employees_within_department',

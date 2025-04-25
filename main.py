@@ -2,8 +2,7 @@
 """
 Bakery Employee Analysis System
 
-This script orchestrates the analysis of bakery employee tracking data,
-with enhanced visualizations and time series analysis.
+This script orchestrates the analysis of bakery employee tracking data.
 """
 
 import pandas as pd
@@ -12,7 +11,7 @@ from pathlib import Path
 import argparse
 import sys
 
-# Import from new modular structure
+# Import from modular structure
 from src.analysis.ergonomics import (
     # Core analysis functions
     calculate_ergonomic_score,
@@ -23,17 +22,9 @@ from src.analysis.ergonomics import (
     generate_ergonomic_report,
     generate_region_ergonomic_report,
     generate_all_employees_comparison,
-    generate_all_regions_comparison,
-    
-    # Utilities
-    export_duration_factor_thresholds,
     
     # Main entry point for handling analysis
-    run_handling_time_analysis,
-    
-    # Department comparison functions
-    compare_employees_within_department,
-    compare_departments_in_specializations
+    run_handling_time_analysis
 )
 
 from src.utils.file_utils import ensure_dir_exists, check_required_files
@@ -49,11 +40,11 @@ from src.utils.translation_utils import get_translation
 
 from src.visualization.activity_vis import (
     plot_activity_distribution, 
-    plot_activity_distribution_by_employee
+    plot_activity_distribution_by_employee,
+    analyze_activities_by_region
 )
 from src.visualization.floor_plan_vis import create_region_heatmap
 from src.visualization.employee_region_vis import create_employee_region_heatmap
-from src.visualization.region_activity_analysis import analyze_activities_by_region
 
 def parse_arguments():
     """Parse command line arguments"""
@@ -81,7 +72,6 @@ def parse_arguments():
     parser.add_argument('--step5', action='store_true', help='Run statistical analysis')
     parser.add_argument('--step6', action='store_true', help='Run regional activity analysis')
     parser.add_argument('--step7', action='store_true', help='Run ergonomic analysis')
-    parser.add_argument('--step8', action='store_true', help='Run workflow analysis')
     parser.add_argument('--step9', action='store_true', help='Run handling time analysis')
     parser.add_argument('--employee', type=str, help='Specific employee ID to analyze (e.g., 32-A)')
     parser.add_argument('--department', type=str, choices=['Bread', 'Cake'], 
@@ -133,8 +123,8 @@ def run_employee_heatmaps(data, floor_plan_data, output_dir, employee_id=None, l
             floor_plan_data,
             emp_id,
             save_path=emp_dir / f"{emp_id}_region_heatmap.png",
-            top_n=10,  # Display top 10 regions
-            min_transitions=2,  # Include transitions with at least 2 occurrences
+            top_n=10,
+            min_transitions=2,
             language=language
         )
     
@@ -182,31 +172,6 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None, language='en'):
     print(f"  {get_translation('Analyzing activity duration statistics...', language)}")
     activity_stats = analyze_activity_durations(filtered_data)
     
-    # Export duration factor thresholds
-    print(f"  {get_translation('Exporting duration factor thresholds...', language)}")
-    export_duration_factor_thresholds(filtered_data, ergonomic_dir, language)
-    
-    # Convert activity statistics to DataFrame for saving
-    activity_stats_data = []
-    for activity, stats in activity_stats.items():
-        activity_stats_data.append({
-            'activity': activity,
-            'count': stats['count'],
-            'mean': stats['mean'],
-            'median': stats['median'],
-            'p25': stats['p25'],
-            'p75': stats['p75'],
-            'p90': stats['p90'],
-            'p95': stats['p95'],
-            'min': stats['min'],
-            'max': stats['max']
-        })
-    
-    # Save activity duration statistics
-    activity_stats_df = pd.DataFrame(activity_stats_data)
-    activity_stats_df.to_csv(ergonomic_dir / 'activity_duration_statistics.csv', index=False)
-    print(f"  {get_translation('Saved activity duration statistics to ergonomic_analysis/activity_duration_statistics.csv', language)}")
-    
     # Create summary DataFrame for employees
     summary_data = []
     for emp_score in employee_scores:
@@ -241,28 +206,6 @@ def run_ergonomic_analysis(data, output_dir, employee_id=None, language='en'):
         print(f"  {get_translation('Generating region ergonomic reports...', language)}")
         generate_region_ergonomic_report(region_analyses, region_reports_dir, language)
         print(f"  {get_translation('Saved region ergonomic reports to ergonomic_analysis/region_reports/', language)}")
-        
-        # Save region ergonomic summary
-        region_summary = []
-        for region, analysis in region_analyses.items():
-            region_summary.append({
-                'region': region,
-                'ergonomic_score': analysis['ergonomic_score'],
-                'total_hours': analysis['total_duration'] / 3600,
-                'qualified_employees': analysis['qualified_employees'],
-                'handle_up_pct': analysis['activity_distribution'].get('Handle up', {}).get('percentage', 0),
-                'handle_down_pct': analysis['activity_distribution'].get('Handle down', {}).get('percentage', 0),
-                'handle_center_pct': analysis['activity_distribution'].get('Handle center', {}).get('percentage', 0),
-            })
-        
-        region_summary_df = pd.DataFrame(region_summary)
-        region_summary_df = region_summary_df.sort_values('ergonomic_score', ascending=False)
-        region_summary_df.to_csv(ergonomic_dir / 'region_ergonomic_summary.csv', index=False)
-        print(f"  {get_translation('Saved region ergonomic summary to ergonomic_analysis/region_ergonomic_summary.csv', language)}")
-        
-        # Generate region comparison visualizations
-        print(f"  {get_translation('Generating region comparison visualizations...', language)}")
-        generate_all_regions_comparison(region_analyses, ergonomic_dir, language)
     
     # Print scores overview
     print(f"\n{get_translation('Ergonomic Scores Overview:', language)}")
@@ -284,7 +227,7 @@ def main():
     
     # Check if any step is specified, otherwise run all steps
     run_all = not (args.step1 or args.step2 or args.step3 or args.step4 or 
-                  args.step5 or args.step6 or args.step7 or args.step8 or args.step9 or
+                  args.step5 or args.step6 or args.step7 or args.step9 or
                   args.analysisonly or args.ergonomicsonly or args.handlinganalysis)
     
     # Check required files
@@ -416,36 +359,6 @@ def main():
         
         run_employee_heatmaps(data, floor_plan_data, output_path, args.employee, language)
     
-    # 5. Statistical Analysis
-    if run_all or args.step5:
-        print("\n" + "=" * 40)
-        print(f"=== 5. {get_translation('Statistical Analysis', language)} ===")
-        
-        # Analyzing statistical metrics through department comparison
-        if not args.department:
-            print(f"  {get_translation('Running department comparisons...', language)}")
-            compare_employees_within_department(data, output_path, language)
-        else:
-            department = args.department
-            print(f"  {get_translation('Analyzing {0} department...', language).format(department)}")
-            bread_employees = ['32-A', '32-C', '32-D', '32-E']
-            cake_employees = ['32-F', '32-G', '32-H']
-            
-            if department == 'Bread':
-                # Analyze only bread department
-                compare_employees_within_department(
-                    data[data['id'].isin(bread_employees)], 
-                    output_path, 
-                    language
-                )
-            else:
-                # Analyze only cake department
-                compare_employees_within_department(
-                    data[data['id'].isin(cake_employees)], 
-                    output_path, 
-                    language
-                )
-    
     # 6. Regional Activity Analysis
     if run_all or args.step6:
         print("\n" + "=" * 40)
@@ -485,15 +398,6 @@ def main():
         
         run_ergonomic_analysis(data, output_path, args.employee, language)
     
-    # 8. Department comparison analysis
-    if run_all or args.step8:
-        print("\n" + "=" * 40)
-        print(f"=== 8. {get_translation('Department Comparison Analysis', language)} ===")
-        
-        # Compare departments in specialized environments
-        print(f"  {get_translation('Comparing departments in specialized environments...', language)}")
-        compare_departments_in_specializations(data, output_path, language)
-    
     # 9. Handling Time Analysis
     if run_all or args.step9:
         print("\n" + "=" * 40)
@@ -521,17 +425,12 @@ def main():
         print(f"3. {floor_plan_dir}/region_heatmap.png - {get_translation('Region usage heatmap', language)}")
     if run_all or args.step4:
         print(f"4. {output_path}/employee_heatmaps/ - {get_translation('Employee region heatmaps', language)}")
-    if run_all or args.step5:
-        print(f"5. {output_path}/handling_analysis/ - {get_translation('Employee comparison within departments', language)}")
     if run_all or args.step6:
         print(f"6. {vis_dir}/regional_activity_analysis/ - {get_translation('Activity breakdown by region per employee', language)}")
     if run_all or args.step7:
         print(f"7. {output_path}/ergonomic_analysis/ - {get_translation('Ergonomic assessment reports', language)}")
-    if run_all or args.step8:
-        print(f"8. {output_path}/handling_analysis/department_specialization_comparison.csv - {get_translation('Department comparison results', language)}")
     if run_all or args.step9:
         print(f"9. {output_path}/handling_analysis/ - {get_translation('Handling time position analysis', language)}")
-        print(f"   {output_path}/visualizations/handling_analysis/ - {get_translation('Handling position visualizations', language)}")
     
     if args.ergonomicsonly:
         print(f"• {output_path}/ergonomic_analysis/employee_reports/ - {get_translation('Ergonomic assessment reports', language)}")
