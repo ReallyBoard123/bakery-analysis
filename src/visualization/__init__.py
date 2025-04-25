@@ -30,12 +30,9 @@ from .floor_plan_vis import (
 )
 
 from .common_vis import (
-    plot_activity_by_day,
     plot_employee_summary,
     plot_department_comparison,
     plot_shift_comparison,
-    plot_employee_activities_by_date,
-    plot_activity_breakdown_pie,
     plot_region_activity_heatmap
 )
 

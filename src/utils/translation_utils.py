@@ -68,6 +68,13 @@ TRANSLATIONS = {
         'Activity Distribution by Shift': 'Activity Distribution by Shift',
         'Activity Distribution Across Top Regions': 'Activity Distribution Across Top Regions',
         'Common Visualizations': 'Common Visualizations',
+        'Total Activity Duration by Shift': 'Total Activity Duration by Shift',
+        'Activities by Shift - Employee {0}': 'Activities by Shift - Employee {0}',
+        'Activities by Shift - All Employees': 'Activities by Shift - All Employees',
+        'Activity Duration - {0}: {1}': 'Activity Duration - {0}: {1}',
+        'Activity Duration - All Data': 'Activity Duration - All Data',
+        'Generating activity by shift visualization...': 'Generating activity by shift visualization...',
+
         
         # New visualization messages
         'Generating activity by day visualization...': 'Generating activity by day visualization...',
@@ -182,6 +189,12 @@ TRANSLATIONS = {
         'Activity Distribution by Shift': 'Aktivitätsverteilung nach Schicht',
         'Activity Distribution Across Top Regions': 'Aktivitätsverteilung über die wichtigsten Regionen',
         'Common Visualizations': 'Allgemeine Visualisierungen',
+        'Total Activity Duration by Shift': 'Gesamtaktivitätsdauer nach Schicht',
+        'Activities by Shift - Employee {0}': 'Aktivitäten nach Schicht - Mitarbeiter {0}',
+        'Activities by Shift - All Employees': 'Aktivitäten nach Schicht - Alle Mitarbeiter',
+        'Activity Duration - {0}: {1}': 'Aktivitätsdauer - {0}: {1}',
+        'Activity Duration - All Data': 'Aktivitätsdauer - Alle Daten',
+        'Generating activity by shift visualization...': 'Generiere Aktivität nach Schicht Visualisierung...',
         
         # New visualization messages
         'Generating activity by day visualization...': 'Generiere Aktivität nach Tag Visualisierung...',
