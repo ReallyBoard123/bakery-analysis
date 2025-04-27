@@ -128,26 +128,40 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
             percentile = np.ceil(10 * (i + 1) / len(sorted_transitions))
             transition_percentiles[(from_region, to_region)] = percentile
     
+    # IMPROVED: Track accurate transition durations between specific regions
+    transition_durations = {}
+    
+    # Identify sequential transitions
+    for i in range(len(visit_analysis['all_visits']) - 1):
+        current_visit = visit_analysis['all_visits'][i]
+        next_visit = visit_analysis['all_visits'][i + 1]
+        
+        from_region = current_visit['region']
+        to_region = next_visit['region']
+        
+        # Only count transitory visits as transitions
+        if current_visit['duration'] < MEANINGFUL_PRESENCE_THRESHOLD:
+            key = (from_region, to_region)
+            if key not in transition_durations:
+                transition_durations[key] = 0
+            transition_durations[key] += current_visit['duration']
+    
     # Calculate transition time between region pairs (bidirectional)
     transition_table_data = []
     
     # Process all region pairs
     for i, region1 in enumerate(top_regions):
         for region2 in top_regions[i+1:]:
-            # Find all transitions involving these regions
-            transition_duration = 0
-            transition_count = 0
-            
             # Count transitions from region1 to region2
             count_1_to_2 = visit_analysis['transition_counts'].get((region1, region2), 0)
             count_2_to_1 = visit_analysis['transition_counts'].get((region2, region1), 0)
             transition_count = count_1_to_2 + count_2_to_1
             
             if transition_count >= min_transitions:
-                # Find all transitions where either of these regions is transitory
-                for visit in visit_analysis['transitions']:
-                    if visit['region'] == region1 or visit['region'] == region2:
-                        transition_duration += visit['duration']
+                # IMPROVED: Only include actual transitions between these specific regions
+                duration_1_to_2 = transition_durations.get((region1, region2), 0)
+                duration_2_to_1 = transition_durations.get((region2, region1), 0)
+                transition_duration = duration_1_to_2 + duration_2_to_1
                 
                 # Add to table data
                 transition_table_data.append({
@@ -157,6 +171,18 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
                     'formatted_duration': format_seconds_to_hms(transition_duration),
                     'percentage': (transition_duration / total_duration * 100) if total_duration > 0 else 0
                 })
+    
+    # VERIFICATION: Add after transition table calculation
+    total_transitory_time = sum(visit['duration'] for visit in visit_analysis['transitions'])
+    total_transition_duration = sum(t['duration'] for t in transition_table_data)
+    
+    print(f"Employee {employee_id} validation:")
+    print(f"  Total time: {format_seconds_to_hms(total_duration)}")
+    print(f"  Total transitory time: {format_seconds_to_hms(total_transitory_time)}")
+    print(f"  Total transition table duration: {format_seconds_to_hms(total_transition_duration)}")
+    
+    if total_transition_duration > total_transitory_time * 1.01:  # Allow 1% margin for rounding
+        print(f"  WARNING: Transition duration exceeds total transitory time!")
     
     # Sort by count (descending)
     transition_table_data.sort(key=lambda x: x['count'], reverse=True)
@@ -192,7 +218,7 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
         ['#87CEEB', '#44A4DF', '#FFD700', '#FF8C00', '#FF4500']
     )
     
-    # Draw regions as rectangles with color based on percentile
+    # REVISED ORDER OF DRAWING: First draw region rectangles (lowest z-order)
     for region_info in top_regions_data:
         region = region_info['region']
         if region in region_coordinates and region in region_dimensions:
@@ -210,31 +236,18 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
             color_intensity = percentile / 10.0
             color = region_cmap(color_intensity)
             
-            # Draw rectangle
+            # Draw rectangle with lowest z-order
             rect = patches.Rectangle(
                 (x_scaled, y_scaled),
                 width_scaled, height_scaled,
-                linewidth=1, edgecolor='black', facecolor=color, alpha=0.7
+                linewidth=1, edgecolor='black', facecolor=color, alpha=0.7,
+                zorder=10  # Lowest z-index for rectangles
             )
             ax_map.add_patch(rect)
-            
-            # Format time display
-            duration_str = region_info['formatted_duration']
-            visits = region_info['meaningful_visits']
-            avg_duration_sec = int(region_info['avg_meaningful_duration'])
-            
-            # Add label with formatted info (no region name)
-            ax_map.text(
-                x * img_width, y * img_height,
-                f"{duration_str}\n{visits} visits - {avg_duration_sec}sec",
-                fontsize=9, ha='center', va='center',
-                bbox=dict(facecolor='white', alpha=0.8, edgecolor='none')
-            )
     
-    # Sort transitions by count to ensure higher counts are drawn on top
+    # THEN draw transition lines (middle z-order)
     sorted_transitions = sorted(transition_counts.items(), key=lambda x: x[1])
     
-    # Draw transitions between regions with thickness based on percentile
     for (from_region, to_region), count in sorted_transitions:
         if from_region in region_coordinates and to_region in region_coordinates:
             from_x, from_y = region_coordinates[from_region]
@@ -256,7 +269,7 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
             color_intensity = percentile / 10.0
             color = transition_cmap(color_intensity)
             
-            # Draw arrow with solid line
+            # Draw arrow with middle z-order
             ax_map.arrow(
                 from_x_scaled, from_y_scaled,
                 (to_x_scaled - from_x_scaled) * 0.8,  # Shorten arrow to not overlap with regions
@@ -268,7 +281,27 @@ def create_employee_region_heatmap(data, floor_plan_data, employee_id, save_path
                 linewidth=line_width,
                 length_includes_head=True,
                 alpha=0.7,
-                zorder=int(percentile)  # Higher percentile = higher z-index
+                zorder=50  # Middle z-index for transition lines
+            )
+    
+    # FINALLY add information boxes (highest z-order)
+    for region_info in top_regions_data:
+        region = region_info['region']
+        if region in region_coordinates:
+            x, y = region_coordinates[region]
+            
+            # Format time display
+            duration_str = region_info['formatted_duration']
+            visits = region_info['meaningful_visits']
+            avg_duration_sec = int(region_info['avg_meaningful_duration'])
+            
+            # Add label with formatted info - NO REGION NAME as requested
+            ax_map.text(
+                x * img_width, y * img_height,
+                f"{duration_str}\n{visits} visits - {avg_duration_sec}sec",
+                fontsize=9, ha='center', va='center',
+                bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'),
+                zorder=101  # Highest z-index for info text
             )
     
     # Create region usage table

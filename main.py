@@ -125,7 +125,7 @@ def run_employee_heatmaps(data, floor_plan_data, output_dir, employee_id=None, l
             floor_plan_data,
             emp_id,
             save_path=emp_dir / f"{emp_id}_region_heatmap.png",
-            top_n=6,  # Set to top 6 regions
+            top_n=8,  # Set to top 6 regions
             min_transitions=2,
             language=language
         )
