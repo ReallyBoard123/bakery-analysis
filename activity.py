@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 import sys
 
-from src.analysis.activity.walking import analyze_walking_patterns
+from src.analysis.activity.walking import analyze_walking_by_shift, analyze_walking_patterns
 from src.utils.file_utils import ensure_dir_exists, check_required_files
 from src.utils.data_utils import load_sensor_data, classify_departments
 
@@ -99,8 +99,16 @@ def main():
         print(f"Analyzing walking patterns throughout the day...")
         walking_results = analyze_walking_patterns(data, walking_dir, args.time_slot, language)
         
+        print(f"Analyzing walking patterns by shift...")
+        if 'shift' in data.columns:
+            shift_results = analyze_walking_by_shift(data, walking_dir, args.time_slot, language)
+            print(f"Created shift comparison visualizations for {len(shift_results)} employees")
+        else:
+            print("Shift information not found in dataset - skipping shift analysis")
+
         print(f"\nSaved walking analysis results to {walking_dir}/")
         print(f"Timeline visualizations saved to {walking_dir}/timeline/")
+        print(f"Shift comparison visualizations saved to {walking_dir}/shifts/")
     else:
         print("\nNo analysis type specified. Use --walk to analyze walking patterns.")
         return 0

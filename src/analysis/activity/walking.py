@@ -442,3 +442,445 @@ def create_walking_summary(walking_stats, output_dir, language='en'):
     # Save figure
     save_figure(fig, output_dir / 'total_walking_time.png')
     plt.close()
+
+def analyze_walking_by_shift(data, output_dir=None, time_slot_minutes=30, language='en'):
+    """
+    Analyze walking patterns by shift for each employee
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Input dataframe with tracking data
+    output_dir : Path, optional
+        Directory to save output files
+    time_slot_minutes : int, optional
+        Size of time slots in minutes
+    language : str, optional
+        Language code ('en' or 'de')
+    
+    Returns:
+    --------
+    dict
+        Dictionary with shift analysis results
+    """
+    # Filter walking data
+    walking_data = data[data['activity'] == 'Walk'].copy()
+    
+    if walking_data.empty or 'shift' not in walking_data.columns:
+        print("No walking data or shift information found in the dataset.")
+        return {}
+    
+    # Create shift-based directory
+    if output_dir:
+        shift_dir = output_dir / 'shifts'
+        shift_dir.mkdir(exist_ok=True, parents=True)
+    
+    # Extract hour of day from startTime 
+    walking_data['hour_of_day'] = walking_data['startTime'] / 3600  # Convert to hours
+    
+    # Calculate number of slots in a day
+    slots_per_day = 24 * 60 // time_slot_minutes
+    
+    # Create time slot index for each record
+    walking_data['time_slot_idx'] = (walking_data['hour_of_day'] * 60 / time_slot_minutes).astype(int) % slots_per_day
+    
+    # Create time slot labels
+    time_slot_labels = []
+    for i in range(slots_per_day):
+        minutes_from_midnight = i * time_slot_minutes
+        hours = minutes_from_midnight // 60
+        minutes = minutes_from_midnight % 60
+        time_slot_labels.append(f"{hours:02d}:{minutes:02d}")
+    
+    walking_data['time_slot'] = walking_data['time_slot_idx'].apply(lambda x: time_slot_labels[x])
+    
+    # Process each employee
+    results = {}
+    for emp_id in walking_data['id'].unique():
+        emp_data = walking_data[walking_data['id'] == emp_id]
+        shifts = emp_data['shift'].unique()
+        
+        if len(shifts) <= 1:
+            continue  # Skip employees with only one shift
+        
+        # Create visualization comparing shifts
+        create_shift_comparison_plot(
+            emp_data, 
+            emp_id, 
+            shifts, 
+            slots_per_day,
+            time_slot_labels,
+            shift_dir,
+            time_slot_minutes,
+            language
+        )
+        
+        # Store results
+        results[emp_id] = {
+            'shifts': shifts.tolist(),
+            'shift_counts': emp_data.groupby('shift').size().to_dict()
+        }
+    
+    # Create all-employee shift comparisons
+    for shift in walking_data['shift'].unique():
+        shift_data = walking_data[walking_data['shift'] == shift]
+        if len(shift_data['id'].unique()) > 1:
+            create_shift_employee_comparison(
+                shift_data,
+                shift,
+                slots_per_day,
+                time_slot_labels,
+                shift_dir,
+                time_slot_minutes,
+                language
+            )
+    
+    return results
+
+def create_shift_comparison_plot(emp_data, emp_id, shifts, slots_per_day, 
+                              time_slot_labels, output_dir, time_slot_minutes, language='en'):
+    """
+    Create an improved visualization comparing walking patterns across different shifts
+    """
+    set_visualization_style()
+    fig, ax = plt.subplots(figsize=(16, 8))
+    
+    # Get employee color
+    employee_colors = get_employee_colors()
+    base_color = employee_colors.get(emp_id, '#1f77b4')
+    
+    # Track active time periods
+    all_active_slots = []
+    
+    # Create a color palette
+    from matplotlib.colors import to_rgba
+    base_rgba = to_rgba(base_color)
+    
+    # Calculate walking stats by shift and time slot
+    all_shift_data = []
+    max_minutes = 0
+    
+    for shift_idx, shift in enumerate(shifts):
+        # Filter data for this shift
+        shift_data = emp_data[emp_data['shift'] == shift]
+        
+        # Calculate time slot statistics
+        slot_data = shift_data.groupby('time_slot_idx')['duration'].agg(['sum', 'count']).reset_index()
+        slot_data.columns = ['time_slot_idx', 'total_duration', 'walk_count']
+        
+        # Track which slots have activity (for focusing the x-axis)
+        active_slots = slot_data[slot_data['total_duration'] > 0]['time_slot_idx'].tolist()
+        all_active_slots.extend(active_slots)
+        
+        # Create full time series with all slots
+        full_slots = pd.DataFrame({
+            'time_slot_idx': range(slots_per_day),
+            'time_slot': [time_slot_labels[i] for i in range(slots_per_day)]
+        })
+        
+        # Merge with slot data to ensure all slots exist
+        full_data = pd.merge(full_slots, slot_data, on=['time_slot_idx'], how='left')
+        full_data = full_data.fillna(0).sort_values('time_slot_idx')
+        full_data['duration_minutes'] = full_data['total_duration'] / 60
+        
+        all_shift_data.append((shift, full_data))
+        max_minutes = max(max_minutes, full_data['duration_minutes'].max())
+    
+    # Determine colors for each shift (with nice gradient)
+    shift_colors = {}
+    for i, shift in enumerate(shifts):
+        # Create pleasing gradient
+        opacity = 0.8
+        hue_shift = i / max(1, len(shifts) - 1)  # 0 to 1 range
+        
+        # Create a color that varies in hue but maintains the base saturation/value
+        import colorsys
+        h, s, v = colorsys.rgb_to_hsv(*base_rgba[:3])
+        new_h = (h + 0.1 + hue_shift * 0.3) % 1.0  # Shift hue in pleasing range
+        r, g, b = colorsys.hsv_to_rgb(new_h, s, v)
+        
+        shift_colors[shift] = (r, g, b, opacity)
+    
+    # Plot each shift's data with enhanced smoothing
+    for shift, shift_data in all_shift_data:
+        # Apply stronger smoothing for nicer curve appearance
+        from scipy.ndimage import gaussian_filter1d
+        
+        # Extract the y-values and apply Gaussian smoothing
+        y_values = shift_data['duration_minutes'].values
+        # Apply stronger Gaussian smoothing (sigma controls smoothness)
+        smoothed_y = gaussian_filter1d(y_values, sigma=2.0) 
+        
+        # Plot with thicker, smoother lines
+        ax.plot(
+            shift_data['time_slot_idx'],
+            smoothed_y,
+            '-', 
+            label=f"Shift {shift}",
+            linewidth=3.0,  # Thicker line
+            color=shift_colors[shift],
+            alpha=0.9  # High opacity for rich color
+        )
+        
+        # Add subtle fill below the line for density-like appearance
+        ax.fill_between(
+            shift_data['time_slot_idx'],
+            smoothed_y,
+            alpha=0.2,  # Light fill
+            color=shift_colors[shift]
+        )
+        
+        # Mark peaks for each shift (using the smoothed data)
+        peaks = []
+        for i in range(1, len(smoothed_y)-1):
+            if smoothed_y[i] > max(smoothed_y[i-1], smoothed_y[i+1]) and smoothed_y[i] > 5:  # Only significant peaks
+                peaks.append((i, smoothed_y[i]))
+        
+        # Sort peaks by height and take top 3
+        peaks.sort(key=lambda x: x[1], reverse=True)
+        for idx, height in peaks[:3]:
+            if height > 0:
+                ax.scatter(
+                    idx,
+                    height,
+                    s=80,
+                    color=shift_colors[shift],
+                    edgecolor='white',
+                    zorder=10
+                )
+                ax.annotate(
+                    f"{height:.1f}m",
+                    xy=(idx, height),
+                    xytext=(0, 10),
+                    textcoords='offset points',
+                    ha='center',
+                    fontweight='bold',
+                    color=shift_colors[shift],
+                    arrowprops=dict(arrowstyle='->', color=shift_colors[shift])
+                )
+    
+    # Focus x-axis on relevant time periods
+    if all_active_slots:
+        # Find earliest and latest active slots with padding
+        min_slot = max(0, min(all_active_slots) - 2)  # Add padding
+        max_slot = min(slots_per_day - 1, max(all_active_slots) + 2)  # Add padding
+        
+        # Set x-axis limits to focus only on active periods
+        ax.set_xlim(min_slot, max_slot)
+        
+        # Create focused x-ticks within this range
+        span = max_slot - min_slot
+        if span <= 24:  # For smaller spans, show more detail
+            tick_every = 1
+        else:
+            tick_every = span // 12  # About 12 ticks regardless of span
+        
+        focused_ticks = range(min_slot, max_slot + 1, tick_every)
+        ax.set_xticks(focused_ticks)
+        ax.set_xticklabels([time_slot_labels[i] for i in focused_ticks], rotation=45)
+    
+    # Set y-axis limit with 20% padding
+    ax.set_ylim(0, max_minutes * 1.2)
+    
+    # Set labels and title with more styling
+    ax.set_title(f"Walking Patterns Across Shifts - Employee {emp_id}", 
+                fontsize=18, fontweight='bold', color=base_rgba)
+    ax.set_xlabel("Time of Day", fontsize=14, fontweight='bold')
+    ax.set_ylabel("Minutes Spent Walking", fontsize=14, fontweight='bold')
+    
+    # Enhanced grid styling
+    ax.grid(axis='y', linestyle='--', alpha=0.4)
+    
+    # More attractive legend
+    legend = ax.legend(title="Shift", loc="upper right", frameon=True, fancybox=True, 
+                      framealpha=0.9, shadow=True, fontsize=12)
+    legend.get_title().set_fontweight('bold')
+    
+    plt.tight_layout()
+    
+    if output_dir:
+        save_figure(fig, output_dir / f"employee_{emp_id}_shift_comparison_{time_slot_minutes}min.png")
+    
+    plt.close()
+def create_shift_employee_comparison(shift_data, shift, slots_per_day, 
+                                  time_slot_labels, output_dir, time_slot_minutes, language='en'):
+    """
+    Create a visualization comparing all employees within a single shift
+    """
+    set_visualization_style()
+    fig, ax = plt.subplots(figsize=(16, 8))
+    
+    # Get employee colors
+    employee_colors = get_employee_colors()
+    
+    # Calculate walking stats by employee and time slot
+    all_emp_data = []
+    
+    for emp_id in shift_data['id'].unique():
+        # Filter data for this employee
+        emp_shift_data = shift_data[shift_data['id'] == emp_id]
+        
+        # Calculate time slot statistics
+        slot_data = emp_shift_data.groupby('time_slot_idx')['duration'].agg(['sum', 'count']).reset_index()
+        slot_data.columns = ['time_slot_idx', 'total_duration', 'walk_count']
+        slot_data['time_slot'] = slot_data['time_slot_idx'].apply(lambda x: time_slot_labels[x])
+        slot_data['duration_minutes'] = slot_data['total_duration'] / 60
+        
+        # Create full time series with all slots
+        full_slots = pd.DataFrame({
+            'time_slot_idx': range(slots_per_day),
+            'time_slot': [time_slot_labels[i] for i in range(slots_per_day)]
+        })
+        
+        # Merge with slot data to ensure all slots exist
+        full_data = pd.merge(full_slots, slot_data, on=['time_slot_idx', 'time_slot'], how='left')
+        full_data = full_data.fillna(0).sort_values('time_slot_idx')
+        
+        all_emp_data.append((emp_id, full_data))
+    
+    # Plot each employee's data
+    for emp_id, emp_data in all_emp_data:
+        # Apply smoothing to make the curves look nicer
+        window_size = 3
+        if len(emp_data) > window_size:
+            emp_data['smoothed_minutes'] = emp_data['duration_minutes'].rolling(
+                window=window_size, center=True).mean().fillna(emp_data['duration_minutes'])
+        else:
+            emp_data['smoothed_minutes'] = emp_data['duration_minutes']
+        
+        color = employee_colors.get(emp_id, None)
+        ax.plot(
+            emp_data['time_slot_idx'],
+            emp_data['smoothed_minutes'],  # Use smoothed data for nicer curves
+            '-', 
+            label=f"Employee {emp_id}",
+            linewidth=2.5,
+            color=color
+        )
+    
+    # Improve x-axis tick labels
+    if slots_per_day <= 48:
+        tick_every = 1
+    else:
+        tick_every = slots_per_day // 24
+    
+    ax.set_xticks(range(0, slots_per_day, tick_every))
+    ax.set_xticklabels([time_slot_labels[i] for i in range(0, slots_per_day, tick_every)], rotation=45)
+    
+    # Set labels and title
+    ax.set_title(f"Walking Patterns for Shift {shift}", fontsize=16, fontweight='bold')
+    ax.set_xlabel("Time of Day", fontsize=14)
+    ax.set_ylabel("Minutes Spent Walking", fontsize=14)
+    ax.grid(True, alpha=0.3)
+    ax.legend(title="Employee", loc="upper right")
+    
+    plt.tight_layout()
+    
+    if output_dir:
+        save_figure(fig, output_dir / f"shift_{shift}_employee_comparison_{time_slot_minutes}min.png")
+    
+    plt.close()
+    
+    
+def create_walking_density_plot(data, output_dir=None, language='en'):
+    """
+    Create density plots showing the distribution of walking times by employee
+    """
+    import seaborn as sns
+    from scipy import stats
+    
+    # Filter for walking data
+    walking_data = data[data['activity'] == 'Walk'].copy()
+    
+    # Create directory for density plots
+    if output_dir:
+        density_dir = output_dir / 'density'
+        density_dir.mkdir(exist_ok=True, parents=True)
+    
+    plt.figure(figsize=(12, 8))
+    
+    # Get employee colors
+    employee_colors = get_employee_colors()
+    
+    # For each employee, create a KDE of their walking durations
+    for emp_id in walking_data['id'].unique():
+        # Filter for this employee
+        emp_data = walking_data[walking_data['id'] == emp_id]
+        
+        # Get walking durations in minutes
+        durations = emp_data['duration'] / 60
+        
+        # Use Gaussian KDE to estimate the probability density
+        if len(durations) > 10:  # Need enough data for meaningful KDE
+            # Estimate the probability density
+            density = stats.gaussian_kde(durations)
+            
+            # Plot range (from min to max with padding)
+            x_min = max(0, durations.min() - 1)
+            x_max = durations.max() + 1
+            x = np.linspace(x_min, x_max, 1000)
+            
+            # Get the color for this employee
+            color = employee_colors.get(emp_id, 'blue')
+            
+            # Plot the density curve
+            plt.plot(x, density(x), '-', lw=2.5, color=color, label=f"Employee {emp_id}")
+            
+            # Fill the area under the curve
+            plt.fill_between(x, density(x), alpha=0.3, color=color)
+    
+    plt.title('Distribution of Walking Durations by Employee', fontsize=16, fontweight='bold')
+    plt.xlabel('Duration (minutes)', fontsize=14)
+    plt.ylabel('Density', fontsize=14)
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    
+    plt.tight_layout()
+    
+    if output_dir:
+        plt.savefig(density_dir / "walking_duration_density.png", dpi=300)
+    
+    plt.close()
+    
+    # For ridge plot (like your third image), you need to reshape the data
+    # and use Seaborn's specialized functions
+    
+    # Prepare data in long format
+    ridge_data = []
+    for emp_id in walking_data['id'].unique():
+        emp_data = walking_data[walking_data['id'] == emp_id]
+        durations = emp_data['duration'] / 60
+        
+        for d in durations:
+            ridge_data.append({
+                'employee': f"Employee {emp_id}",
+                'duration': d
+            })
+    
+    if ridge_data:
+        ridge_df = pd.DataFrame(ridge_data)
+        
+        plt.figure(figsize=(12, 8))
+        
+        # Create ridge plot
+        sns.set_theme(style="white", rc={"axes.facecolor": (0, 0, 0, 0)})
+        
+        # Initialize the FacetGrid object
+        g = sns.FacetGrid(ridge_df, row="employee", height=1.5, aspect=6)
+        
+        # Draw the densities in a loop
+        for i, (name, color) in enumerate(employee_colors.items()):
+            g.map_dataframe(sns.kdeplot, x="duration", 
+                           fill=True, alpha=.5, linewidth=1.5)
+        
+        # Add titles and labels
+        g.fig.suptitle('Distribution of Walking Durations', fontsize=16, y=.95)
+        g.set_axis_labels("Duration (minutes)", "")
+        g.set_titles(col_template="{col_name}", row_template="{row_name}")
+        g.fig.subplots_adjust(hspace=0.5)
+        g.set(xlim=(0, ridge_df['duration'].max() * 1.1))
+        
+        if output_dir:
+            plt.savefig(density_dir / "walking_duration_ridgeplot.png", dpi=300)
+        
+        plt.close()
