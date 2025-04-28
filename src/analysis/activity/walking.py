@@ -32,19 +32,20 @@ SHIFT_COLORS = {
 REGION_COLORS = {
     'Fettbacken': '#6BAED6',            # Light blue
     'Konditorei_station': '#3182BD',    # Blue
-    'Konditorei_deco_raum': '#08519C',  # Dark blue
+    'konditorei_deco': '#08519C',       # Dark blue
     'Brotstation': '#31A354',           # Green
     '1_Brotstation': '#31A354',         # Same green for variants
     '2_Brotstation': '#31A354',
     '3_Brotstation': '#31A354',
     '4_Brotstation': '#31A354',
-    'BackMaschine': '#74C476',          # Light green
-    'Mehl_Brötchen_Maschine': '#C7E9C0', # Very light green
-    'Brotwagon_und_kisten': '#FFFF00',  # Yellow
+    'Mehlmaschine': '#74C476',          # Light green
+    'brotkisten_regal': '#FFFF00',      # Yellow
     '1_Konditorei_station': '#3182BD',  # Blue variants
     '2_Konditorei_station': '#3182BD',
     '3_Konditorei_station': '#3182BD',
-    'konditorei_deco': '#08519C',       # Dark blue variants
+    'bereitstellen_prepared_goods': '#FF7F0E',  # Orange
+    '1_corridor': '#D62728',            # Red
+    'leere_Kisten': '#9467BD',          # Purple
 }
 
 def get_shift_color(shift, base_color=None):
@@ -217,8 +218,11 @@ def create_shift_comparison_plot(emp_data, emp_id, shifts, time_slot_minutes, ou
         slot_data = []
         for slot, stats in slot_stats.items():
             # Find most common region by duration
-            most_common = max(stats['region_durations'].items(), key=lambda x: x[1]) if stats['region_durations'] else (None, 0)
-            region, region_duration = most_common
+            if stats['region_durations']:
+                most_common = max(stats['region_durations'].items(), key=lambda x: x[1])
+                region, region_duration = most_common
+            else:
+                region, region_duration = None, 0
             
             # Store for regions panel
             if slot not in region_data_by_slot or region_duration > region_data_by_slot.get(slot, {}).get('duration', 0):
@@ -474,9 +478,9 @@ def create_shift_comparison_plot(emp_data, emp_id, shifts, time_slot_minutes, ou
     return fig
 
 def create_region_activity_bar_plot(data, employee_id, time_slot_minutes=30, output_dir=None, 
-                                  language='en', custom_region_colors=None):
+                                  language='en', custom_region_colors=None, show_all_regions=True):
     """
-    Create a standalone bar plot showing region activity over time
+    Create a bar plot showing region activity over time with stacked regions
     
     Parameters:
     -----------
@@ -492,6 +496,8 @@ def create_region_activity_bar_plot(data, employee_id, time_slot_minutes=30, out
         Language code ('en' or 'de')
     custom_region_colors : dict
         Custom color mapping for regions
+    show_all_regions : bool
+        Whether to show all regions or just the most common one per slot
     """
     set_visualization_style()
     fig = plt.figure(figsize=(16, 6))
@@ -519,8 +525,8 @@ def create_region_activity_bar_plot(data, employee_id, time_slot_minutes=30, out
     x_min = evening_slot
     x_max = afternoon_slot + slots_per_day if afternoon_slot < evening_slot else afternoon_slot
     
-    # Group by slot and find highest-duration region per slot
-    region_by_slot = {}
+    # Group by slot and region to get accurate totals per region
+    slot_region_data = defaultdict(lambda: defaultdict(float))
     
     for _, row in walking_data.iterrows():
         time_slot = int(row['time_slot_idx'])
@@ -535,20 +541,13 @@ def create_region_activity_bar_plot(data, employee_id, time_slot_minutes=30, out
         region = row['region']
         duration = row['duration']
         
-        if display_slot not in region_by_slot or duration > region_by_slot[display_slot]['duration']:
-            region_by_slot[display_slot] = {
-                'region': region,
-                'duration': duration
-            }
+        # Accumulate durations by slot and region
+        slot_region_data[display_slot][region] += duration
     
-    # Get unique regions
+    # Convert to list for plotting
     all_regions = set()
-    for data in region_by_slot.values():
-        if data['region']:
-            all_regions.add(data['region'])
-    
-    # Create data for saving
-    bar_data = []
+    for slot_data in slot_region_data.values():
+        all_regions.update(slot_data.keys())
     
     # Get colors for regions
     region_colors = {}
@@ -565,31 +564,92 @@ def create_region_activity_bar_plot(data, employee_id, time_slot_minutes=30, out
         for i, region in enumerate(sorted(missing_regions)):
             region_colors[region] = color_cycle[i]
     
-    # Plot region bars
-    for slot, data in region_by_slot.items():
-        if x_min <= slot <= x_max:
-            region = data['region']
-            minutes = data['duration'] / 60
-            
-            if region:
+    # Create data for saving
+    stacked_data = []
+    
+    if show_all_regions:
+        # Create stacked bar chart showing all regions per slot
+        if all_regions:
+            # Sort regions by total time for consistent stacking order
+            region_totals = {region: sum(slot_data.get(region, 0) for slot_data in slot_region_data.values())
+                            for region in all_regions}
+            sorted_regions = sorted(all_regions, key=lambda r: region_totals.get(r, 0), reverse=True)
+        else:
+            sorted_regions = []  # Ensure sorted_regions is defined even if all_regions is empty
+
+        # Ensure plotted_regions is defined to avoid errors
+        plotted_regions = set()
+
+        # For each slot, plot stacked bars for each region that has data
+        bottom = np.zeros(x_max + 1)  # Initialize bottom positions for stacking
+
+        for region in sorted_regions:
+            if region in plotted_regions:
+                # Create array of values for this region across all slots
+                heights = np.zeros(x_max + 1)
+
+                for slot in range(x_min, x_max + 1):
+                    if slot in slot_region_data and region in slot_region_data[slot]:
+                        duration_mins = slot_region_data[slot][region] / 60
+                        heights[slot] = duration_mins
+
+                        # Record data for saving
+                        if duration_mins > 0:
+                            stacked_data.append({
+                                'slot': slot,
+                                'region': region,
+                                'minutes': duration_mins,
+                                'time_of_day': time_slot_labels[slot % slots_per_day]
+                            })
+
+                # Plot bars for this region
                 color = region_colors.get(region, 'gray')
-                ax.bar(
-                    slot,
-                    minutes,
-                    width=0.8,
-                    color=color,
-                    alpha=0.8,
-                    edgecolor='white',
-                    linewidth=0.5
-                )
-                
-                # Add to data for saving
-                bar_data.append({
-                    'slot': slot,
-                    'region': region,
-                    'minutes': minutes,
-                    'time_of_day': time_slot_labels[slot % slots_per_day]
-                })
+                slots = np.arange(len(heights))
+                mask = heights > 0  # Only plot non-zero values
+
+                if np.any(mask):
+                    ax.bar(
+                        slots[mask],
+                        heights[mask],
+                        bottom=bottom[mask],
+                        width=0.8,
+                        color=color,
+                        alpha=0.8,
+                        edgecolor='white',
+                        linewidth=0.5,
+                        label=region
+                    )
+
+                    # Update bottom position for next region
+                    bottom += heights
+    else:
+        # Original behavior - show only top region per slot
+        for slot in range(x_min, x_max + 1):
+            if slot in slot_region_data:
+                # Find top region for this slot
+                regions = [(region, duration) for region, duration in slot_region_data[slot].items()]
+                if regions:
+                    top_region, duration = max(regions, key=lambda x: x[1])
+                    duration_mins = duration / 60
+                    
+                    color = region_colors.get(top_region, 'gray')
+                    ax.bar(
+                        slot,
+                        duration_mins,
+                        width=0.8,
+                        color=color,
+                        alpha=0.8,
+                        edgecolor='white',
+                        linewidth=0.5
+                    )
+                    
+                    # Record data for saving
+                    stacked_data.append({
+                        'slot': slot,
+                        'region': top_region,
+                        'minutes': duration_mins,
+                        'time_of_day': time_slot_labels[slot % slots_per_day]
+                    })
     
     # Set x-axis range
     ax.set_xlim(x_min, x_max)
@@ -612,6 +672,8 @@ def create_region_activity_bar_plot(data, employee_id, time_slot_minutes=30, out
     
     # Set labels
     title = f"Region Walking Activity - Employee {employee_id}" if employee_id else "Region Walking Activity - All Employees"
+    if not show_all_regions:
+        title += " (Top Region per Slot)"
     ax.set_title(title, fontsize=14, fontweight='bold')
     ax.set_ylabel("Minutes", fontsize=12)
     ax.set_xlabel("Time of Day", fontsize=12)
@@ -621,31 +683,41 @@ def create_region_activity_bar_plot(data, employee_id, time_slot_minutes=30, out
     
     # Add region legend
     if region_colors:
-        from matplotlib.patches import Patch
-        legend_elements = [Patch(facecolor=color, label=region) 
-                          for region, color in region_colors.items()]
+        # Only include regions that actually got plotted
+        plotted_regions = {item['region'] for item in stacked_data}
+        legend_elements = [
+            plt.Rectangle((0, 0), 1, 1, color=region_colors.get(region, 'gray'), alpha=0.8)
+            for region in sorted_regions if region in plotted_regions
+        ]
+        legend_labels = [region for region in sorted_regions if region in plotted_regions]
         
-        ax.legend(
-            handles=legend_elements,
-            loc='upper center',
-            bbox_to_anchor=(0.5, -0.15),
-            ncol=min(5, len(region_colors)),
-            title="Most Visited Regions"
-        )
+        if show_all_regions:
+            # For stacked bars, legend is automatic if we used 'label'
+            pass
+        else:
+            # For single top region, add manual legend
+            ax.legend(
+                legend_elements,
+                legend_labels,
+                loc='upper center',
+                bbox_to_anchor=(0.5, -0.15),
+                ncol=min(5, len(plotted_regions)),
+                title="Most Visited Regions"
+            )
     
     plt.tight_layout(rect=[0, 0, 1, 0.9])
     
     if output_dir:
         # Save plot
         if employee_id:
-            save_path = output_dir / f"employee_{employee_id}_region_bars.png"
+            save_path = output_dir / f"employee_{employee_id}_region_bars{'_stacked' if show_all_regions else ''}.png"
         else:
-            save_path = output_dir / "all_employees_region_bars.png"
+            save_path = output_dir / f"all_employees_region_bars{'_stacked' if show_all_regions else ''}.png"
         save_figure(fig, save_path)
         
         # Save data
-        if bar_data:
-            bar_df = pd.DataFrame(bar_data)
+        if stacked_data:
+            bar_df = pd.DataFrame(stacked_data)
             if employee_id:
                 data_path = output_dir / f"employee_{employee_id}_region_bars_data.csv"
             else:
@@ -656,7 +728,7 @@ def create_region_activity_bar_plot(data, employee_id, time_slot_minutes=30, out
     return fig
 
 def analyze_walking_by_shift(data, output_dir=None, time_slot_minutes=30, language='en', 
-                          show_region_labels=False, custom_region_colors=None):
+                          show_region_labels=False, custom_region_colors=None, stacked_bars=True):
     """
     Analyze walking patterns by shift for each employee with improved visualizations
     
@@ -674,6 +746,8 @@ def analyze_walking_by_shift(data, output_dir=None, time_slot_minutes=30, langua
         Whether to show region names in peak annotations
     custom_region_colors : dict
         Custom color mapping for regions
+    stacked_bars : bool
+        Whether to show stacked bars for all regions (True) or just top region (False)
     """
     # Filter walking data
     walking_data = data[data['activity'] == 'Walk'].copy()
@@ -728,7 +802,8 @@ def analyze_walking_by_shift(data, output_dir=None, time_slot_minutes=30, langua
             time_slot_minutes,
             bar_dir,
             language,
-            custom_region_colors
+            custom_region_colors,
+            show_all_regions=stacked_bars
         )
         
         # Store results
@@ -751,7 +826,62 @@ def analyze_walking_by_shift(data, output_dir=None, time_slot_minutes=30, langua
         time_slot_minutes,
         bar_dir,
         language,
-        custom_region_colors
+        custom_region_colors,
+        show_all_regions=stacked_bars
     )
     
     return results
+
+def validate_region_visualization(data, hour, employee_id=None, output_path=None):
+    """
+    Validate region visualization by comparing with raw data
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Input dataframe
+    hour : int
+        Hour to validate (0-23)
+    employee_id : str, optional
+        Employee ID to filter on, or None for all employees
+    output_path : str, optional
+        Path to save validation data
+        
+    Returns:
+    --------
+    pandas.DataFrame
+        Summary of walking by region for the specified hour
+    """
+    # Filter for walking activity
+    walking_data = data[data['activity'] == 'Walk'].copy()
+    
+    # Filter by employee if specified
+    if employee_id:
+        walking_data = walking_data[walking_data['id'] == employee_id]
+    
+    # Extract hour from startTime
+    walking_data['hour'] = (walking_data['startTime'] / 3600) % 24
+    walking_data['hour'] = walking_data['hour'].astype(int)
+    
+    # Filter for specified hour
+    target_data = walking_data[walking_data['hour'] == hour]
+    
+    # Group by region and calculate total duration
+    region_stats = target_data.groupby('region').agg({
+        'duration': ['sum', 'count'],
+        'date': 'nunique',
+    }).reset_index()
+    
+    # Flatten column names
+    region_stats.columns = ['region', 'total_minutes', 'count', 'days']
+    region_stats['total_minutes'] = region_stats['total_minutes'] / 60  # Convert to minutes
+    
+    # Sort by duration
+    region_stats = region_stats.sort_values('total_minutes', ascending=False)
+    
+    # Save if path provided
+    if output_path:
+        region_stats.to_csv(output_path, index=False)
+        print(f"Saved validation data to {output_path}")
+    
+    return region_stats

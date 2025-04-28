@@ -3,7 +3,7 @@
 Bakery Walking Pattern Analysis
 
 This script analyzes walking patterns of bakery employees based on sensor data,
-creating timeline-based density plots to show when employees walk during the day.
+creating timeline-based visualizations to show when and where employees walk.
 """
 
 import pandas as pd
@@ -13,7 +13,11 @@ from pathlib import Path
 import sys
 
 # Import walking analysis functions
-from src.analysis.activity.walking import analyze_walking_by_shift, create_region_activity_bar_plot
+from src.analysis.activity.walking import (
+    analyze_walking_by_shift, 
+    create_region_activity_bar_plot,
+    validate_region_visualization
+)
 from src.utils.file_utils import ensure_dir_exists, check_required_files
 from src.utils.data_utils import load_sensor_data, classify_departments
 
@@ -29,12 +33,14 @@ def parse_arguments():
     parser.add_argument('--employee', type=str, help='Specific employee ID to analyze (e.g., 32-A)')
     parser.add_argument('--time-slot', type=int, default=30, 
                         help='Time slot size in minutes (default: 30)')
-    parser.add_argument('--bars-only', action='store_true',
-                      help='Generate only the region bar plots (no density plots)')
-    parser.add_argument('--density-only', action='store_true',
-                      help='Generate only the density plots (no region bar plots)')
+    parser.add_argument('--stacked', action='store_true',
+                      help='Generate stacked bar charts showing all regions instead of just the top one')
     parser.add_argument('--show-region-labels', action='store_true',
                       help='Show region names on density plot annotations')
+    parser.add_argument('--validate', action='store_true',
+                      help='Generate validation data for a specific hour')
+    parser.add_argument('--validate-hour', type=int, default=6,
+                      help='Hour to validate (0-23), default is 6 AM')
     
     return parser.parse_args()
 
@@ -78,6 +84,7 @@ def main():
     output_path = ensure_dir_exists(args.output)
     walking_dir = ensure_dir_exists(output_path / 'walking_analysis')
     data_dir = ensure_dir_exists(walking_dir / 'data')
+    validation_dir = ensure_dir_exists(walking_dir / 'validation')
     
     # Load data
     print(f"\nLoading data from {args.data}...")
@@ -99,6 +106,26 @@ def main():
         data = data[data['id'] == args.employee]
         print(f"Filtered data for employee {args.employee}")
     
+    # Run validation if requested
+    if args.validate:
+        print(f"\nValidating walking region data for hour {args.validate_hour}...")
+        
+        # Create validation file paths
+        validation_path = validation_dir / f"walking_hour_{args.validate_hour}.csv"
+        
+        validation_result = validate_region_visualization(
+            data, 
+            args.validate_hour, 
+            args.employee, 
+            validation_path
+        )
+        
+        # Print top regions
+        print(f"\nTop regions by walking time for hour {args.validate_hour}:")
+        print(validation_result.head(10))
+        
+        print(f"\nValidation data saved to {validation_path}")
+    
     # Check if walking analysis is requested
     if args.walk:
         print("\n" + "=" * 40)
@@ -107,31 +134,28 @@ def main():
         # Create separate region bar plots directory
         bar_dir = ensure_dir_exists(walking_dir / 'region_bars')
         
-        # Generate density plots if not bars_only
-        if not args.bars_only:
-            print(f"Analyzing walking patterns by shift...")
-            if 'shift' in data.columns:
-                # Define our custom region colors (using the provided scheme)
-                custom_region_colors = {
-                    # These are already defined in walking.py but can be overridden here
-                }
-                
-                shift_results = analyze_walking_by_shift(
-                    data, 
-                    walking_dir, 
-                    args.time_slot, 
-                    language,
-                    show_region_labels=args.show_region_labels,
-                    custom_region_colors=custom_region_colors
-                )
-                print(f"Created shift visualizations for {len(shift_results)} employees")
-            else:
-                print("Shift information not found in dataset - skipping shift analysis")
-        
-        # Generate just bar plots if requested
-        if args.bars_only:
-            print("Generating region bar plots only...")
-            # Process each employee
+        # Generate visualizations
+        print(f"Analyzing walking patterns by shift...")
+        if 'shift' in data.columns:
+            # Define our custom region colors (using the provided scheme)
+            custom_region_colors = {
+                # These are already defined in walking.py but can be overridden here
+            }
+            
+            shift_results = analyze_walking_by_shift(
+                data, 
+                walking_dir, 
+                args.time_slot, 
+                language,
+                args.show_region_labels,
+                custom_region_colors,
+                stacked_bars=args.stacked
+            )
+            print(f"Created shift visualizations with {'stacked bars' if args.stacked else 'top region bars'}")
+        else:
+            print("Shift information not found in dataset - skipping shift analysis")
+            
+            # Still create region bar plots even without shift data
             for emp_id in data['id'].unique():
                 emp_data = data[data['id'] == emp_id]
                 if 'activity' in emp_data.columns:
@@ -142,7 +166,8 @@ def main():
                             emp_id,
                             args.time_slot,
                             bar_dir,
-                            language
+                            language,
+                            show_all_regions=args.stacked
                         )
                         print(f"Created region bar plot for employee {emp_id}")
                         
@@ -154,7 +179,8 @@ def main():
                     None,  # None means all employees
                     args.time_slot,
                     bar_dir,
-                    language
+                    language,
+                    show_all_regions=args.stacked
                 )
                 print("Created region bar plot for all employees")
 
