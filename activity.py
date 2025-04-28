@@ -101,7 +101,7 @@ def main():
         print("\n" + "=" * 40)
         print(f"=== Walking Pattern Analysis ({args.time_slot}-minute intervals) ===")
         
-                
+        
         print(f"Analyzing walking patterns by shift...")
         if 'shift' in data.columns:
             shift_results = analyze_walking_by_shift(data, walking_dir, args.time_slot, language)
