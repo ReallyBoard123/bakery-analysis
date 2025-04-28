@@ -12,7 +12,8 @@ import time
 from pathlib import Path
 import sys
 
-from src.analysis.activity.walking import analyze_walking_by_shift, analyze_walking_patterns
+# Import modified functions without name changes
+from src.analysis.activity.walking import analyze_walking_by_shift
 from src.utils.file_utils import ensure_dir_exists, check_required_files
 from src.utils.data_utils import load_sensor_data, classify_departments
 
@@ -28,6 +29,10 @@ def parse_arguments():
     parser.add_argument('--employee', type=str, help='Specific employee ID to analyze (e.g., 32-A)')
     parser.add_argument('--time-slot', type=int, default=30, 
                         help='Time slot size in minutes (default: 30)')
+    parser.add_argument('--focus-active', action='store_true', 
+                      help='Focus x-axis on active time periods (7:30PM-2PM if not specified)')
+    parser.add_argument('--all-employees', action='store_true',
+                      help='Generate visualizations for all employees even with single shift')
     
     return parser.parse_args()
 
@@ -96,9 +101,7 @@ def main():
         print("\n" + "=" * 40)
         print(f"=== Walking Pattern Analysis ({args.time_slot}-minute intervals) ===")
         
-        print(f"Analyzing walking patterns throughout the day...")
-        walking_results = analyze_walking_patterns(data, walking_dir, args.time_slot, language)
-        
+                
         print(f"Analyzing walking patterns by shift...")
         if 'shift' in data.columns:
             shift_results = analyze_walking_by_shift(data, walking_dir, args.time_slot, language)
@@ -134,6 +137,7 @@ def main():
         print(f"2. {walking_dir}/timeline/ - Individual employee walking patterns")
     
     print(f"3. {walking_dir}/total_walking_time.png - Overall walking summary")
+    print(f"4. {walking_dir}/shifts/ - Shift comparisons with improved region information")
     
     return 0
 
