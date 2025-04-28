@@ -12,8 +12,8 @@ import time
 from pathlib import Path
 import sys
 
-# Import modified functions without name changes
-from src.analysis.activity.walking import analyze_walking_by_shift
+# Import walking analysis functions
+from src.analysis.activity.walking import analyze_walking_by_shift, create_region_activity_bar_plot
 from src.utils.file_utils import ensure_dir_exists, check_required_files
 from src.utils.data_utils import load_sensor_data, classify_departments
 
@@ -29,10 +29,12 @@ def parse_arguments():
     parser.add_argument('--employee', type=str, help='Specific employee ID to analyze (e.g., 32-A)')
     parser.add_argument('--time-slot', type=int, default=30, 
                         help='Time slot size in minutes (default: 30)')
-    parser.add_argument('--focus-active', action='store_true', 
-                      help='Focus x-axis on active time periods (7:30PM-2PM if not specified)')
-    parser.add_argument('--all-employees', action='store_true',
-                      help='Generate visualizations for all employees even with single shift')
+    parser.add_argument('--bars-only', action='store_true',
+                      help='Generate only the region bar plots (no density plots)')
+    parser.add_argument('--density-only', action='store_true',
+                      help='Generate only the density plots (no region bar plots)')
+    parser.add_argument('--show-region-labels', action='store_true',
+                      help='Show region names on density plot annotations')
     
     return parser.parse_args()
 
@@ -75,6 +77,7 @@ def main():
     # Create output directory structure
     output_path = ensure_dir_exists(args.output)
     walking_dir = ensure_dir_exists(output_path / 'walking_analysis')
+    data_dir = ensure_dir_exists(walking_dir / 'data')
     
     # Load data
     print(f"\nLoading data from {args.data}...")
@@ -101,17 +104,65 @@ def main():
         print("\n" + "=" * 40)
         print(f"=== Walking Pattern Analysis ({args.time_slot}-minute intervals) ===")
         
+        # Create separate region bar plots directory
+        bar_dir = ensure_dir_exists(walking_dir / 'region_bars')
         
-        print(f"Analyzing walking patterns by shift...")
-        if 'shift' in data.columns:
-            shift_results = analyze_walking_by_shift(data, walking_dir, args.time_slot, language)
-            print(f"Created shift comparison visualizations for {len(shift_results)} employees")
-        else:
-            print("Shift information not found in dataset - skipping shift analysis")
+        # Generate density plots if not bars_only
+        if not args.bars_only:
+            print(f"Analyzing walking patterns by shift...")
+            if 'shift' in data.columns:
+                # Define our custom region colors (using the provided scheme)
+                custom_region_colors = {
+                    # These are already defined in walking.py but can be overridden here
+                }
+                
+                shift_results = analyze_walking_by_shift(
+                    data, 
+                    walking_dir, 
+                    args.time_slot, 
+                    language,
+                    show_region_labels=args.show_region_labels,
+                    custom_region_colors=custom_region_colors
+                )
+                print(f"Created shift visualizations for {len(shift_results)} employees")
+            else:
+                print("Shift information not found in dataset - skipping shift analysis")
+        
+        # Generate just bar plots if requested
+        if args.bars_only:
+            print("Generating region bar plots only...")
+            # Process each employee
+            for emp_id in data['id'].unique():
+                emp_data = data[data['id'] == emp_id]
+                if 'activity' in emp_data.columns:
+                    walk_data = emp_data[emp_data['activity'] == 'Walk']
+                    if not walk_data.empty:
+                        create_region_activity_bar_plot(
+                            walk_data,
+                            emp_id,
+                            args.time_slot,
+                            bar_dir,
+                            language
+                        )
+                        print(f"Created region bar plot for employee {emp_id}")
+                        
+            # Create combined plot for all employees
+            walk_data = data[data['activity'] == 'Walk']
+            if not walk_data.empty:
+                create_region_activity_bar_plot(
+                    walk_data,
+                    None,  # None means all employees
+                    args.time_slot,
+                    bar_dir,
+                    language
+                )
+                print("Created region bar plot for all employees")
 
         print(f"\nSaved walking analysis results to {walking_dir}/")
-        print(f"Timeline visualizations saved to {walking_dir}/timeline/")
-        print(f"Shift comparison visualizations saved to {walking_dir}/shifts/")
+        print(f"Saved density plots to {walking_dir}/shifts/")
+        print(f"Saved bar plots to {bar_dir}/")
+        print(f"Saved data files to {data_dir}/")
+        
     else:
         print("\nNo analysis type specified. Use --walk to analyze walking patterns.")
         return 0
@@ -125,19 +176,6 @@ def main():
     print("=" * 40)
     print(f"Execution time: {execution_time:.2f} seconds")
     print(f"\nResults saved to: {output_path}")
-    
-    print("\nKey visualizations to check:")
-    print(f"1. {walking_dir}/timeline/all_employees_walking_patterns_{args.time_slot}min.png - Combined walking patterns")
-    
-    employees = data['id'].unique()
-    if len(employees) <= 5:  # Only list individual files if there aren't too many
-        for emp_id in employees:
-            print(f"2. {walking_dir}/timeline/employee_{emp_id}_walking_pattern_{args.time_slot}min.png - Walking pattern for employee {emp_id}")
-    else:
-        print(f"2. {walking_dir}/timeline/ - Individual employee walking patterns")
-    
-    print(f"3. {walking_dir}/total_walking_time.png - Overall walking summary")
-    print(f"4. {walking_dir}/shifts/ - Shift comparisons with improved region information")
     
     return 0
 

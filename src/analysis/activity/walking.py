@@ -1,5 +1,5 @@
 """
-Functions to modify for the improved walking pattern analysis
+Functions for walking pattern analysis
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,6 +10,7 @@ from scipy.ndimage import gaussian_filter1d
 import matplotlib.gridspec as gridspec
 import matplotlib.colors as mcolors
 from collections import defaultdict
+from datetime import datetime
 
 from ...utils.time_utils import format_seconds_to_hms
 from ...visualization.base import set_visualization_style, get_employee_colors, save_figure, get_text
@@ -25,6 +26,25 @@ SHIFT_COLORS = {
     7: '#4169E1',  # Royal Blue
     8: '#FF4500',  # Orange Red
     9: '#9932CC',  # Dark Orchid
+}
+
+# Define colors for specific regions
+REGION_COLORS = {
+    'Fettbacken': '#6BAED6',            # Light blue
+    'Konditorei_station': '#3182BD',    # Blue
+    'Konditorei_deco_raum': '#08519C',  # Dark blue
+    'Brotstation': '#31A354',           # Green
+    '1_Brotstation': '#31A354',         # Same green for variants
+    '2_Brotstation': '#31A354',
+    '3_Brotstation': '#31A354',
+    '4_Brotstation': '#31A354',
+    'BackMaschine': '#74C476',          # Light green
+    'Mehl_Brötchen_Maschine': '#C7E9C0', # Very light green
+    'Brotwagon_und_kisten': '#FFFF00',  # Yellow
+    '1_Konditorei_station': '#3182BD',  # Blue variants
+    '2_Konditorei_station': '#3182BD',
+    '3_Konditorei_station': '#3182BD',
+    'konditorei_deco': '#08519C',       # Dark blue variants
 }
 
 def get_shift_color(shift, base_color=None):
@@ -48,617 +68,612 @@ def get_shift_color(shift, base_color=None):
     # Final fallback
     return plt.cm.tab10(int(shift) % 10)
 
-def create_shift_comparison_plot(emp_data, emp_id, shifts, slots_per_day, 
-                              time_slot_labels, output_dir, time_slot_minutes, language='en'):
+def get_region_color(region, default_colors=None):
+    """Get color for a specific region"""
+    # First check predefined region colors
+    if region in REGION_COLORS:
+        return REGION_COLORS[region]
+    
+    # Next check if we have a custom color dictionary
+    if default_colors and region in default_colors:
+        return default_colors[region]
+    
+    # Fallback to a standard color scheme
+    return None  # This will use the default coloring system
+
+def prepare_continuous_timeline(shift_data, time_slot_minutes=30):
+    """
+    Create a continuous timeline that respects date boundaries
+    """
+    # Sort by date and startTime for proper order
+    if 'date' in shift_data.columns:
+        shift_data = shift_data.sort_values(['date', 'startTime'])
+    else:
+        shift_data = shift_data.sort_values('startTime')
+    
+    # Extract hour of day
+    shift_data['hour_of_day'] = shift_data['startTime'] / 3600  # Convert to hours
+    
+    # Number of slots in a day
+    slots_per_day = 24 * 60 // time_slot_minutes
+    
+    # Create basic time slot index (within a day)
+    shift_data['time_slot_idx'] = (shift_data['hour_of_day'] * 60 / time_slot_minutes).astype(int) % slots_per_day
+    
+    # Create continuous slot index that respects date boundaries
+    if 'date' in shift_data.columns:
+        # Convert date strings to numeric days since first date
+        base_date = shift_data['date'].min()
+        shift_data['day_offset'] = shift_data['date'].apply(lambda d: 
+            (datetime.strptime(d, '%d-%m-%Y') - datetime.strptime(base_date, '%d-%m-%Y')).days)
+        
+        # Continuous slot = day_offset * slots_per_day + time_slot_idx
+        shift_data['continuous_slot'] = shift_data['day_offset'] * slots_per_day + shift_data['time_slot_idx']
+    else:
+        # If no date column, just use the time_slot_idx
+        shift_data['continuous_slot'] = shift_data['time_slot_idx']
+    
+    # Create time slot labels
+    time_slot_labels = []
+    for i in range(slots_per_day):
+        minutes_from_midnight = i * time_slot_minutes
+        hours = minutes_from_midnight // 60
+        minutes = minutes_from_midnight % 60
+        time_slot_labels.append(f"{hours:02d}:{minutes:02d}")
+    
+    shift_data['time_slot'] = shift_data['time_slot_idx'].apply(lambda x: time_slot_labels[x])
+    
+    return shift_data, slots_per_day, time_slot_labels
+
+def create_shift_comparison_plot(emp_data, emp_id, shifts, time_slot_minutes, output_dir, 
+                               language='en', show_region_labels=False, custom_region_colors=None):
     """
     Create an improved visualization comparing walking patterns across different shifts
-    with consistent colors, time ranges, and region information
+    with continuous timeline and no gaps
+    
+    Parameters:
+    -----------
+    emp_data : pandas.DataFrame
+        Input dataframe with employee data
+    emp_id : str
+        Employee ID to analyze
+    shifts : list
+        List of shifts to compare
+    time_slot_minutes : int
+        Size of time slots in minutes
+    output_dir : Path
+        Output directory for saving files
+    language : str, optional
+        Language code ('en' or 'de')
+    show_region_labels : bool, optional
+        Whether to show region names in annotations
+    custom_region_colors : dict, optional
+        Custom color mapping for regions
     """
     set_visualization_style()
     
-    # Create figure with gridspec for main plot and region panel
-    fig = plt.figure(figsize=(16, 10))
-    gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])
+    # Create figure
+    fig = plt.figure(figsize=(16, 8))
     
-    # Main plot (top)
+    # Create main graph and regions panel
+    gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])
     ax = fig.add_subplot(gs[0])
+    ax_regions = fig.add_subplot(gs[1])
     
     # Get employee color
     employee_colors = get_employee_colors()
     base_color = employee_colors.get(emp_id, '#1f77b4')
     
-    # Calculate walking stats by shift and time slot
-    all_shift_data = []
-    max_minutes = 0
-    region_duration_by_slot = {}
+    # Define our standard x-axis range (7:30PM to 3:00PM next day)
+    slots_per_day = 24 * 60 // time_slot_minutes
+    evening_slot = 19 * 60 // time_slot_minutes + 2  # 7:30 PM (19:30)
+    afternoon_slot = 15 * 60 // time_slot_minutes  # 3:00 PM (15:00)
     
-    for shift_idx, shift in enumerate(shifts):
+    # Calculate total range for plotting (for next day, add slots_per_day)
+    x_min = evening_slot
+    x_max = afternoon_slot + slots_per_day if afternoon_slot < evening_slot else afternoon_slot
+    
+    # Dictionary to track region data for bottom panel
+    region_data_by_slot = {}
+    max_minutes = 0
+    
+    # For saving data
+    all_plot_data = []
+    
+    # Process each shift
+    all_shift_curves = []
+    
+    for shift in shifts:
         # Filter data for this shift
-        shift_data = emp_data[emp_data['shift'] == shift]
+        shift_data = emp_data[emp_data['shift'] == shift].copy()
+        if shift_data.empty:
+            continue
         
-        # Calculate time slot statistics 
-        # Also collect region information per time slot
+        # Process date and time to create continuous timeline
+        shift_data, slots_per_day, time_slot_labels = prepare_continuous_timeline(shift_data, time_slot_minutes)
+        
+        # Group data by continuous slot
         slot_stats = defaultdict(lambda: {'duration': 0, 'count': 0, 'regions': [], 'region_durations': defaultdict(float)})
         
         for _, row in shift_data.iterrows():
-            slot_idx = int(row['time_slot_idx'])
-            slot_stats[slot_idx]['duration'] += row['duration']
-            slot_stats[slot_idx]['count'] += 1
-            slot_stats[slot_idx]['regions'].append(row['region'])
-            slot_stats[slot_idx]['region_durations'][row['region']] += row['duration']
-        
-        # Convert to DataFrame format
-        slot_data = []
-        for slot_idx, stats in slot_stats.items():
-            # Find most common region and its duration
-            regions = stats['regions']
-            region_durations = stats['region_durations']
-            most_common = max(region_durations.items(), key=lambda x: x[1]) if region_durations else (None, 0)
-            most_common_region, region_duration = most_common
+            slot = int(row['continuous_slot'])
+            time_slot = int(row['time_slot_idx'])
             
-            # Store region data for bottom panel
-            if slot_idx not in region_duration_by_slot or region_duration > region_duration_by_slot.get(slot_idx, {}).get('duration', 0):
-                region_duration_by_slot[slot_idx] = {
-                    'region': most_common_region,
+            # Map continuous slot to our standard viewing window
+            # For slots after midnight, we need to map them to the "next day" in our viewing window
+            if time_slot < evening_slot:
+                # This is a next-morning slot, shift it for continuity in plotting
+                display_slot = time_slot + slots_per_day
+            else:
+                display_slot = time_slot
+            
+            # Update stats
+            slot_stats[display_slot]['duration'] += row['duration']
+            slot_stats[display_slot]['count'] += 1
+            slot_stats[display_slot]['regions'].append(row['region'])
+            slot_stats[display_slot]['region_durations'][row['region']] += row['duration']
+        
+        # Convert to dataframe
+        slot_data = []
+        for slot, stats in slot_stats.items():
+            # Find most common region by duration
+            most_common = max(stats['region_durations'].items(), key=lambda x: x[1]) if stats['region_durations'] else (None, 0)
+            region, region_duration = most_common
+            
+            # Store for regions panel
+            if slot not in region_data_by_slot or region_duration > region_data_by_slot.get(slot, {}).get('duration', 0):
+                region_data_by_slot[slot] = {
+                    'region': region,
                     'duration': region_duration,
                     'shift': shift
                 }
             
             slot_data.append({
-                'time_slot_idx': slot_idx,
+                'slot': slot,
                 'total_duration': stats['duration'],
                 'walk_count': stats['count'],
-                'most_common_region': most_common_region,
+                'most_common_region': region,
                 'region_duration': region_duration
             })
         
-        slot_df = pd.DataFrame(slot_data)
-        
-        # Create full time series with all slots
-        full_slots = pd.DataFrame({
-            'time_slot_idx': range(slots_per_day),
-            'time_slot': [time_slot_labels[i] for i in range(slots_per_day)]
-        })
-        
-        # Merge with slot data to ensure all slots exist
-        if not slot_df.empty:
-            full_data = pd.merge(full_slots, slot_df, on=['time_slot_idx'], how='left')
-        else:
-            full_data = full_slots.copy()
-            full_data['total_duration'] = 0
-            full_data['walk_count'] = 0
-            full_data['most_common_region'] = None
-            full_data['region_duration'] = 0
+        if not slot_data:
+            continue
             
-        full_data = full_data.fillna(0).sort_values('time_slot_idx')
-        full_data['duration_minutes'] = full_data['total_duration'] / 60
-        full_data['region_duration_minutes'] = full_data['region_duration'] / 60
+        df = pd.DataFrame(slot_data)
+        df['duration_minutes'] = df['total_duration'] / 60
+        df['region_duration_minutes'] = df['region_duration'] / 60
+        df['shift'] = shift
         
-        all_shift_data.append((shift, full_data))
-        max_minutes = max(max_minutes, full_data['duration_minutes'].max())
-    
-    # Set fixed time range from 7:30 PM to 3:00 PM next day
-    evening_slot = 19 * 60 // time_slot_minutes + 2  # 7:30 PM (19:30)
-    afternoon_slot = 15 * 60 // time_slot_minutes  # 3:00 PM (15:00)
-    
-    # Handle wrap-around for overnight shifts
-    global_min = evening_slot
-    global_max = afternoon_slot
-    if global_max < global_min:  # Adjust for wraparound
-        global_max += slots_per_day
-    
-    # Plot each shift's data with enhanced smoothing
-    for shift, shift_data in all_shift_data:
-        # Get consistent color for this shift
+        # Add to plot data for saving
+        all_plot_data.append(df)
+        
+        # Update maximum minutes for y-axis scaling
+        max_minutes = max(max_minutes, df['duration_minutes'].max())
+        
+        # Get shift color
         color = get_shift_color(shift, base_color)
         
-        # Apply Gaussian smoothing
-        y_values = shift_data['duration_minutes'].values
-        smoothed_y = gaussian_filter1d(y_values, sigma=2.0)
+        # Create smoothed curve - sort first to ensure correct order
+        df = df.sort_values('slot')
         
-        # Handle wraparound for x-axis plotting
-        x_values = shift_data['time_slot_idx'].values
-        x_smooth = np.copy(x_values)
-        # Adjust x values for slots after midnight for proper plotting
-        for i, x in enumerate(x_values):
-            if x < evening_slot and evening_slot > slots_per_day/2:  # It's a next-day slot
-                x_smooth[i] = x + slots_per_day
+        # Create continuous series for smoother curves
+        slots = np.array(df['slot'])
+        minutes = np.array(df['duration_minutes'])
         
-        # Plot with thicker, smoother lines
-        ax.plot(
-            x_smooth,
-            smoothed_y,
-            '-', 
-            label=f"Shift {shift}",
-            linewidth=3.0,
-            color=color,
-            alpha=0.9
-        )
+        # Interpolate for smoother curve
+        from scipy.interpolate import interp1d
         
-        # Add subtle fill below the line for density-like appearance
-        ax.fill_between(
-            x_smooth,
-            smoothed_y,
-            alpha=0.2,
-            color=color
-        )
-        
-        # Find peaks for region labeling
-        peaks = []
-        for i in range(1, len(smoothed_y)-1):
-            if smoothed_y[i] > max(smoothed_y[i-1], smoothed_y[i+1]) and smoothed_y[i] > 1.0:
-                peaks.append((i, smoothed_y[i]))
-        
-        # Sort by height and take top peaks
-        peaks.sort(key=lambda x: x[1], reverse=True)
-        
-        for idx, height in peaks[:2]:  # Limit to top 2 peaks
-            if height > 0:
-                # Get region info if available
-                region = None
-                if idx < len(shift_data) and 'most_common_region' in shift_data.columns:
-                    region = shift_data.iloc[idx]['most_common_region']
-                
-                # Use actual x value for plotting
-                x_val = x_smooth[idx]
-                
-                # Add marker at peak
-                ax.scatter(
-                    x_val,
-                    height,
-                    s=80,
-                    color=color,
-                    edgecolor='white',
-                    zorder=10
-                )
-                
-                # Add label with minutes and region - in BLACK with more padding
-                if region:
-                    ax.annotate(
-                        f"{height:.1f}m\n({region})",
-                        xy=(x_val, height),
-                        xytext=(0, 20),  # More vertical padding
-                        textcoords='offset points',
-                        ha='center',
-                        fontweight='bold',
-                        color='black',  # BLACK text as requested
-                        arrowprops=dict(arrowstyle='->', color=color)
-                    )
-                else:
-                    ax.annotate(
-                        f"{height:.1f}m",
-                        xy=(x_val, height),
-                        xytext=(0, 20),  # More vertical padding
-                        textcoords='offset points',
-                        ha='center',
-                        fontweight='bold',
-                        color='black',  # BLACK text as requested
-                        arrowprops=dict(arrowstyle='->', color=color)
-                    )
-    
-    # Create bottom panel for region visualization with durations
-    ax_regions = fig.add_subplot(gs[1])
-    
-    # Extract unique regions from collected data
-    all_regions = set()
-    max_region_duration = 0
-    
-    for slot_data in region_duration_by_slot.values():
-        region = slot_data['region']
-        if region:
-            all_regions.add(region)
-            max_region_duration = max(max_region_duration, slot_data['duration'] / 60)
-    
-    # Create colors for regions
-    region_colors = {}
-    color_cycle = plt.cm.tab20(np.linspace(0, 1, len(all_regions)))
-    for i, region in enumerate(sorted(all_regions)):
-        region_colors[region] = color_cycle[i]
-    
-    # Plot regions with actual durations in minutes
-    for slot_idx in range(slots_per_day * 2):  # Extend range to handle wraparound
-        # Only display within our specified range
-        if global_min <= slot_idx <= global_max:
-            # Handle wraparound for original slot index
-            orig_slot_idx = slot_idx % slots_per_day
+        if len(slots) > 1:
+            # Create more points for smoother curve
+            x_smooth = np.linspace(slots.min(), slots.max(), 300)
             
-            if orig_slot_idx in region_duration_by_slot:
-                slot_data = region_duration_by_slot[orig_slot_idx]
-                region = slot_data['region']
-                duration_mins = slot_data['duration'] / 60
-                
-                if region:
-                    color = region_colors.get(region, 'gray')
-                    ax_regions.bar(
-                        slot_idx,
-                        duration_mins,  # Use actual duration in minutes
-                        width=0.8,
-                        color=color,
-                        alpha=0.8,
-                        edgecolor='white',
-                        linewidth=0.5
+            # Cubic interpolation for smoothness
+            try:
+                f = interp1d(slots, minutes, kind='cubic', bounds_error=False, fill_value=0)
+                y_smooth = f(x_smooth)
+                # Remove negative values from interpolation
+                y_smooth = np.maximum(y_smooth, 0)
+            except:
+                # Fallback to linear if cubic fails (can happen with few points)
+                f = interp1d(slots, minutes, kind='linear', bounds_error=False, fill_value=0)
+                y_smooth = f(x_smooth)
+            
+            # Store curve data for finding peaks later
+            all_shift_curves.append((shift, color, x_smooth, y_smooth, df))
+            
+            # Plot the curve
+            ax.plot(x_smooth, y_smooth, '-', color=color, linewidth=3, alpha=0.9, label=f"Shift {shift}")
+            
+            # Add fill below
+            ax.fill_between(x_smooth, y_smooth, color=color, alpha=0.2)
+    
+    # Add region markers at peaks
+    for shift, color, x_smooth, y_smooth, df in all_shift_curves:
+        # Find peak positions
+        from scipy.signal import find_peaks
+        
+        # Get peak indices - require minimum height and separation
+        peak_indices, _ = find_peaks(y_smooth, height=1.0, distance=20)
+        
+        if len(peak_indices) > 0:
+            # Sort peaks by height and take top 2
+            peak_heights = [(i, y_smooth[i]) for i in peak_indices]
+            peak_heights.sort(key=lambda x: x[1], reverse=True)
+            top_peaks = peak_heights[:2]
+            
+            for idx, height in top_peaks:
+                if height > 1.0:  # Only label significant peaks
+                    x_val = x_smooth[idx]
+                    
+                    # Find region at this peak
+                    nearest_slot = (np.abs(df['slot'] - x_val)).idxmin()
+                    region = df.loc[nearest_slot, 'most_common_region']
+                    
+                    # Add marker
+                    ax.scatter(x_val, height, s=80, color=color, edgecolor='white', zorder=10)
+                    
+                    # Add label with time info and optionally region
+                    label_text = f"{height:.1f}m"
+                    if show_region_labels and region:
+                        label_text += f"\n({region})"
+                        
+                    ax.annotate(
+                        label_text,
+                        xy=(x_val, height),
+                        xytext=(0, 20),
+                        textcoords='offset points',
+                        ha='center',
+                        va='bottom',
+                        fontweight='bold',
+                        color='black',
+                        # No bbox for cleaner look
+                        arrowprops=dict(arrowstyle='->', color=color)
                     )
     
-    # Set both axes to use same x range
-    ax.set_xlim(global_min, global_max)
-    ax_regions.set_xlim(global_min, global_max)
+    # Plot regions in bottom panel
+    # Get unique regions
+    all_regions = set()
+    max_region_minutes = 0
+    region_bar_data = []
     
-    # Set y-axis limit with padding for main plot
+    for slot, slot_data in region_data_by_slot.items():
+        if slot_data['region']:
+            all_regions.add(slot_data['region'])
+            max_region_minutes = max(max_region_minutes, slot_data['duration'] / 60)
+            
+            # Add data for saving
+            if x_min <= slot <= x_max:
+                region_bar_data.append({
+                    'slot': slot,
+                    'region': slot_data['region'],
+                    'minutes': slot_data['duration'] / 60,
+                    'shift': slot_data['shift'],
+                    'time_of_day': time_slot_labels[slot % slots_per_day]
+                })
+    
+    # Get colors for regions
+    region_colors = {}
+    for region in all_regions:
+        # First check custom colors
+        color = get_region_color(region, custom_region_colors)
+        if color:
+            region_colors[region] = color
+    
+    # Fill in any missing regions with default color scheme
+    missing_regions = [r for r in all_regions if r not in region_colors]
+    if missing_regions:
+        color_cycle = plt.cm.tab20(np.linspace(0, 1, len(missing_regions)))
+        for i, region in enumerate(sorted(missing_regions)):
+            region_colors[region] = color_cycle[i]
+    
+    # Plot region bars
+    for slot, slot_data in region_data_by_slot.items():
+        if x_min <= slot <= x_max:
+            region = slot_data['region']
+            duration_mins = slot_data['duration'] / 60
+            
+            if region:
+                color = region_colors.get(region, 'gray')
+                ax_regions.bar(
+                    slot,
+                    duration_mins,
+                    width=0.8,
+                    color=color,
+                    alpha=0.8,
+                    edgecolor='white',
+                    linewidth=0.5
+                )
+    
+    # Set x-axis limits to our standard range
+    ax.set_xlim(x_min, x_max)
+    ax_regions.set_xlim(x_min, x_max)
+    
+    # Set y-axis limits
     ax.set_ylim(0, max_minutes * 1.2)
+    ax_regions.set_ylim(0, max_region_minutes * 1.2)
     
-    # Set y-axis limit for region plot
-    ax_regions.set_ylim(0, max_region_duration * 1.2)
+    # Configure x-axis ticks
+    span = x_max - x_min
+    tick_every = max(1, span // 12)  # Around 12 ticks
     
-    # Configure x-axis ticks with appropriate spacing
-    span = global_max - global_min
-    if span <= 24:
-        tick_every = 1
-    else:
-        tick_every = max(1, span // 12)
+    tick_positions = range(x_min, x_max + 1, tick_every)
     
-    tick_positions = range(global_min, global_max + 1, tick_every)
+    # Create x-tick labels that wrap back to time of day
+    x_labels = []
+    for pos in tick_positions:
+        # Convert back to time of day
+        time_idx = pos % slots_per_day
+        x_labels.append(time_slot_labels[time_idx])
+    
+    # Hide x-ticks on top plot
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels([])
+    
+    # Show x-ticks on bottom plot
+    ax_regions.set_xticks(tick_positions)
+    ax_regions.set_xticklabels(x_labels, rotation=45)
     
     # Set labels
     ax.set_title(f"Walking Patterns Across Shifts - Employee {emp_id}", 
                 fontsize=18, fontweight='bold', color='green')
     ax.set_ylabel("Minutes Spent Walking", fontsize=14, fontweight='bold')
     
-    # Hide x tick labels on top plot
-    ax.set_xticklabels([])
-    
-    # Configure region plot
     ax_regions.set_ylabel("Minutes", fontsize=12)
     ax_regions.set_xlabel("Time of Day", fontsize=14, fontweight='bold')
     
-    # Set x ticks on bottom plot
-    ax_regions.set_xticks(tick_positions)
-    
-    # Create proper labels handling wraparound
-    x_labels = []
-    for pos in tick_positions:
-        # Convert back to original slot index
-        orig_idx = pos % slots_per_day
-        x_labels.append(time_slot_labels[orig_idx])
-    
-    ax_regions.set_xticklabels(x_labels, rotation=45)
-    
-    # Enhanced grid styling
+    # Add grid
     ax.grid(axis='y', linestyle='--', alpha=0.4)
     ax_regions.grid(axis='y', linestyle='--', alpha=0.4)
     
-    # More attractive legend for shifts - Top right
-    legend = ax.legend(title="Shift", loc="upper right", frameon=True, fancybox=True, 
-                      framealpha=0.9, shadow=True, fontsize=12)
+    # Add legends
+    legend = ax.legend(title="Shift", loc="upper right", frameon=True, 
+                      fontsize=12, fancybox=True, shadow=True)
     legend.get_title().set_fontweight('bold')
     
-    # Add region legend - HORIZONTAL at the bottom of the entire figure
+    # Add region legend - horizontal at bottom
     if region_colors:
         from matplotlib.patches import Patch
         legend_elements = [Patch(facecolor=color, label=region) 
-                           for region, color in region_colors.items()]
+                          for region, color in region_colors.items()]
         
-        # Create a new axis for the legend at the bottom
-        ax_legend = fig.add_axes([0.1, 0.01, 0.8, 0.03])  # [left, bottom, width, height]
+        # Create new axis for legend
+        ax_legend = fig.add_axes([0.1, 0.01, 0.8, 0.03])
         ax_legend.axis('off')
         ax_legend.legend(
-            handles=legend_elements, 
+            handles=legend_elements,
             loc='center',
             title="Most Visited Regions",
             ncol=min(5, len(region_colors)),
             mode="expand",
             borderaxespad=0.1,
-            frameon=True,
-            fontsize=10
+            frameon=True
         )
     
-    plt.tight_layout(rect=[0, 0.05, 1, 0.98])  # Adjust layout to make room for bottom legend
+    plt.tight_layout(rect=[0, 0.05, 1, 0.98])
     
     if output_dir:
-        save_figure(fig, output_dir / f"employee_{emp_id}_shift_comparison_{time_slot_minutes}min.png")
+        # Save plot
+        plot_path = output_dir / f"employee_{emp_id}_walking_pattern.png"
+        save_figure(fig, plot_path)
+        
+        # Save data
+        if all_plot_data:
+            # Combine data from all shifts
+            combined_df = pd.concat(all_plot_data)
+            
+            # Save density plot data
+            density_path = output_dir / f"employee_{emp_id}_density_data.csv"
+            combined_df.to_csv(density_path, index=False)
+            
+            # Save bar plot data
+            bar_df = pd.DataFrame(region_bar_data)
+            bar_path = output_dir / f"employee_{emp_id}_region_bars_data.csv"
+            bar_df.to_csv(bar_path, index=False)
     
     plt.close()
     return fig
 
-
-def create_shift_employee_comparison(shift_data, shift, slots_per_day, 
-                                  time_slot_labels, output_dir, time_slot_minutes, language='en'):
+def create_region_activity_bar_plot(data, employee_id, time_slot_minutes=30, output_dir=None, 
+                                  language='en', custom_region_colors=None):
     """
-    Create a visualization comparing all employees within a single shift
-    with region information and duration
+    Create a standalone bar plot showing region activity over time
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Input dataframe
+    employee_id : str
+        Employee ID or None for all employees
+    time_slot_minutes : int
+        Size of time slots in minutes
+    output_dir : Path
+        Output directory
+    language : str
+        Language code ('en' or 'de')
+    custom_region_colors : dict
+        Custom color mapping for regions
     """
     set_visualization_style()
+    fig = plt.figure(figsize=(16, 6))
+    ax = fig.add_subplot(111)
     
-    # Create figure with gridspec for main plot and region panel
-    fig = plt.figure(figsize=(16, 10))
-    gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])
+    # Filter walking data
+    walking_data = data[data['activity'] == 'Walk'].copy()
     
-    # Main plot (top)
-    ax = fig.add_subplot(gs[0])
+    # Filter by employee if specified
+    if employee_id:
+        walking_data = walking_data[walking_data['id'] == employee_id]
     
-    # Get employee colors
-    employee_colors = get_employee_colors()
+    if walking_data.empty:
+        print(f"No walking data found for employee {employee_id}")
+        return None
     
-    # Store employee time slot data and region information
-    all_emp_data = []
-    region_duration_by_slot = {}
-    max_minutes = 0
+    # Process date and time to create continuous timeline
+    walking_data, slots_per_day, time_slot_labels = prepare_continuous_timeline(walking_data, time_slot_minutes)
     
-    for emp_id in shift_data['id'].unique():
-        # Filter data for this employee
-        emp_shift_data = shift_data[shift_data['id'] == emp_id]
-        
-        # Calculate time slot statistics and regions
-        slot_stats = defaultdict(lambda: {'duration': 0, 'count': 0, 'regions': [], 'region_durations': defaultdict(float)})
-        
-        for _, row in emp_shift_data.iterrows():
-            slot_idx = int(row['time_slot_idx'])
-            slot_stats[slot_idx]['duration'] += row['duration']
-            slot_stats[slot_idx]['count'] += 1
-            slot_stats[slot_idx]['regions'].append(row['region'])
-            slot_stats[slot_idx]['region_durations'][row['region']] += row['duration']
-        
-        # Convert to DataFrame
-        slot_data = []
-        for slot_idx, stats in slot_stats.items():
-            # Find most common region and its duration
-            region_durations = stats['region_durations']
-            most_common = max(region_durations.items(), key=lambda x: x[1]) if region_durations else (None, 0)
-            most_common_region, region_duration = most_common
-            
-            # Store region data for bottom panel
-            if slot_idx not in region_duration_by_slot or region_duration > region_duration_by_slot.get(slot_idx, {}).get('duration', 0):
-                region_duration_by_slot[slot_idx] = {
-                    'region': most_common_region,
-                    'duration': region_duration,
-                    'employee': emp_id
-                }
-            
-            slot_data.append({
-                'time_slot_idx': slot_idx,
-                'total_duration': stats['duration'],
-                'walk_count': stats['count'],
-                'most_common_region': most_common_region,
-                'region_duration': region_duration
-            })
-        
-        slot_df = pd.DataFrame(slot_data)
-        
-        # Create full time series
-        full_slots = pd.DataFrame({
-            'time_slot_idx': range(slots_per_day),
-            'time_slot': [time_slot_labels[i] for i in range(slots_per_day)]
-        })
-        
-        # Merge with slot data
-        if not slot_df.empty:
-            full_data = pd.merge(full_slots, slot_df, on=['time_slot_idx'], how='left')
-        else:
-            full_data = full_slots.copy()
-            full_data['total_duration'] = 0
-            full_data['walk_count'] = 0
-            full_data['most_common_region'] = None
-            full_data['region_duration'] = 0
-            
-        full_data = full_data.fillna(0).sort_values('time_slot_idx')
-        full_data['duration_minutes'] = full_data['total_duration'] / 60
-        full_data['region_duration_minutes'] = full_data['region_duration'] / 60
-        
-        all_emp_data.append((emp_id, full_data))
-        max_minutes = max(max_minutes, full_data['duration_minutes'].max())
-    
-    # Extract regions across employees
-    all_regions = set()
-    max_region_duration = 0
-    
-    for slot_data in region_duration_by_slot.values():
-        region = slot_data['region']
-        if region:
-            all_regions.add(region)
-            max_region_duration = max(max_region_duration, slot_data['duration'] / 60)
-    
-    # Set fixed time range from 7:30 PM to 3:00 PM next day
+    # Define our standard x-axis range (7:30PM to 3:00PM next day)
     evening_slot = 19 * 60 // time_slot_minutes + 2  # 7:30 PM (19:30)
     afternoon_slot = 15 * 60 // time_slot_minutes  # 3:00 PM (15:00)
     
-    # Handle wrap-around for overnight shifts
-    global_min = evening_slot
-    global_max = afternoon_slot
-    if global_max < global_min:  # Adjust for wraparound
-        global_max += slots_per_day
+    # Calculate total range for plotting (for next day, add slots_per_day)
+    x_min = evening_slot
+    x_max = afternoon_slot + slots_per_day if afternoon_slot < evening_slot else afternoon_slot
     
-    # Plot each employee's data
-    for emp_id, emp_data in all_emp_data:
-        # Apply smoothing for nicer curves
-        y_values = emp_data['duration_minutes'].values
-        smoothed_y = gaussian_filter1d(y_values, sigma=1.5)
+    # Group by slot and find highest-duration region per slot
+    region_by_slot = {}
+    
+    for _, row in walking_data.iterrows():
+        time_slot = int(row['time_slot_idx'])
         
-        # Handle wraparound for x-axis plotting
-        x_values = emp_data['time_slot_idx'].values
-        x_smooth = np.copy(x_values)
-        # Adjust x values for slots after midnight for proper plotting
-        for i, x in enumerate(x_values):
-            if x < evening_slot and evening_slot > slots_per_day/2:  # It's a next-day slot
-                x_smooth[i] = x + slots_per_day
+        # Map time slot to our standard viewing window
+        if time_slot < evening_slot:
+            # This is a next-morning slot, shift it for continuity
+            display_slot = time_slot + slots_per_day
+        else:
+            display_slot = time_slot
+            
+        region = row['region']
+        duration = row['duration']
         
-        # Get employee color
-        color = employee_colors.get(emp_id, None)
-        
-        # Plot the line
-        ax.plot(
-            x_smooth,
-            smoothed_y,
-            '-',
-            label=f"Employee {emp_id}",
-            linewidth=2.5,
-            color=color
-        )
-        
-        # Find peaks
-        peaks = []
-        for i in range(1, len(smoothed_y)-1):
-            if smoothed_y[i] > max(smoothed_y[i-1], smoothed_y[i+1]) and smoothed_y[i] > 1.0:
-                peaks.append((i, smoothed_y[i]))
-        
-        # Sort and take top peaks
-        peaks.sort(key=lambda x: x[1], reverse=True)
-        
-        for idx, height in peaks[:2]:  # Limit to 2 peaks per employee
-            if height > 0:
-                # Get region info
-                region = None
-                if idx < len(emp_data) and 'most_common_region' in emp_data.columns:
-                    region = emp_data.iloc[idx]['most_common_region']
-                
-                # Use actual x value for plotting
-                x_val = x_smooth[idx]
-                
-                # Add marker
-                ax.scatter(
-                    x_val,
-                    height,
-                    s=70,
+        if display_slot not in region_by_slot or duration > region_by_slot[display_slot]['duration']:
+            region_by_slot[display_slot] = {
+                'region': region,
+                'duration': duration
+            }
+    
+    # Get unique regions
+    all_regions = set()
+    for data in region_by_slot.values():
+        if data['region']:
+            all_regions.add(data['region'])
+    
+    # Create data for saving
+    bar_data = []
+    
+    # Get colors for regions
+    region_colors = {}
+    for region in all_regions:
+        # First check custom colors
+        color = get_region_color(region, custom_region_colors)
+        if color:
+            region_colors[region] = color
+    
+    # Fill in any missing regions with default color scheme
+    missing_regions = [r for r in all_regions if r not in region_colors]
+    if missing_regions:
+        color_cycle = plt.cm.tab20(np.linspace(0, 1, len(missing_regions)))
+        for i, region in enumerate(sorted(missing_regions)):
+            region_colors[region] = color_cycle[i]
+    
+    # Plot region bars
+    for slot, data in region_by_slot.items():
+        if x_min <= slot <= x_max:
+            region = data['region']
+            minutes = data['duration'] / 60
+            
+            if region:
+                color = region_colors.get(region, 'gray')
+                ax.bar(
+                    slot,
+                    minutes,
+                    width=0.8,
                     color=color,
+                    alpha=0.8,
                     edgecolor='white',
-                    zorder=10
+                    linewidth=0.5
                 )
                 
-                # Add label with region in BLACK with more padding
-                if region:
-                    ax.annotate(
-                        f"{height:.1f}m\n({region})",
-                        xy=(x_val, height),
-                        xytext=(0, 20),  # More padding
-                        textcoords='offset points',
-                        ha='center',
-                        fontweight='bold',
-                        color='black',  # BLACK text as requested
-                        arrowprops=dict(arrowstyle='->', color=color)
-                    )
-                else:
-                    ax.annotate(
-                        f"{height:.1f}m",
-                        xy=(x_val, height),
-                        xytext=(0, 20),  # More padding
-                        textcoords='offset points',
-                        ha='center',
-                        fontweight='bold',
-                        color='black',  # BLACK text as requested
-                        arrowprops=dict(arrowstyle='->', color=color)
-                    )
+                # Add to data for saving
+                bar_data.append({
+                    'slot': slot,
+                    'region': region,
+                    'minutes': minutes,
+                    'time_of_day': time_slot_labels[slot % slots_per_day]
+                })
     
-    # Region visualization in bottom panel with durations
-    ax_regions = fig.add_subplot(gs[1])
-    
-    # Colors for regions
-    region_colors = {}
-    color_cycle = plt.cm.tab20(np.linspace(0, 1, len(all_regions)))
-    for i, region in enumerate(sorted(all_regions)):
-        region_colors[region] = color_cycle[i]
-    
-    # Plot regions with actual durations in minutes
-    for slot_idx in range(slots_per_day * 2):  # Extend range to handle wraparound
-        # Only display within our specified range
-        if global_min <= slot_idx <= global_max:
-            # Handle wraparound for original slot index
-            orig_slot_idx = slot_idx % slots_per_day
-            
-            if orig_slot_idx in region_duration_by_slot:
-                slot_data = region_duration_by_slot[orig_slot_idx]
-                region = slot_data['region']
-                duration_mins = slot_data['duration'] / 60
-                
-                if region:
-                    color = region_colors.get(region, 'gray')
-                    ax_regions.bar(
-                        slot_idx,
-                        duration_mins,  # Use actual duration in minutes
-                        width=0.8,
-                        color=color,
-                        alpha=0.8,
-                        edgecolor='white',
-                        linewidth=0.5
-                    )
-    
-    # Set both axes to use same x range
-    ax.set_xlim(global_min, global_max)
-    ax_regions.set_xlim(global_min, global_max)
-    
-    # Set y-axis limit with padding for main plot
-    ax.set_ylim(0, max_minutes * 1.2)
-    
-    # Set y-axis limit for region plot
-    ax_regions.set_ylim(0, max_region_duration * 1.2)
+    # Set x-axis range
+    ax.set_xlim(x_min, x_max)
     
     # Configure x-axis ticks
-    span = global_max - global_min
-    if span <= 24:
-        tick_every = 1
-    else:
-        tick_every = max(1, span // 12)
+    span = x_max - x_min
+    tick_every = max(1, span // 12)  # Around 12 ticks
     
-    tick_positions = range(global_min, global_max + 1, tick_every)
+    tick_positions = range(x_min, x_max + 1, tick_every)
     
-    # Set labels
-    ax.set_title(f"Walking Patterns for Shift {shift}", fontsize=16, fontweight='bold', color='brown')
-    ax.set_ylabel("Minutes Spent Walking", fontsize=14)
-    
-    # Hide x tick labels on top plot
-    ax.set_xticklabels([])
-    
-    # Configure region plot
-    ax_regions.set_ylabel("Minutes", fontsize=12)
-    ax_regions.set_xlabel("Time of Day", fontsize=14)
-    
-    # Set x ticks on bottom plot
-    ax_regions.set_xticks(tick_positions)
-    
-    # Create proper labels handling wraparound
+    # Create x-tick labels that wrap back to time of day
     x_labels = []
     for pos in tick_positions:
-        # Convert back to original slot index
-        orig_idx = pos % slots_per_day
-        x_labels.append(time_slot_labels[orig_idx])
+        # Convert back to time of day
+        time_idx = pos % slots_per_day
+        x_labels.append(time_slot_labels[time_idx])
     
-    ax_regions.set_xticklabels(x_labels, rotation=45)
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels(x_labels, rotation=45)
     
-    # Grid
-    ax.grid(True, alpha=0.3)
-    ax_regions.grid(True, alpha=0.3)
+    # Set labels
+    title = f"Region Walking Activity - Employee {employee_id}" if employee_id else "Region Walking Activity - All Employees"
+    ax.set_title(title, fontsize=14, fontweight='bold')
+    ax.set_ylabel("Minutes", fontsize=12)
+    ax.set_xlabel("Time of Day", fontsize=12)
     
-    # Legend for employees
-    ax.legend(title="Employee", loc="upper right")
+    # Add grid
+    ax.grid(axis='y', linestyle='--', alpha=0.4)
     
-    # Add region legend - HORIZONTAL at the bottom of the entire figure
+    # Add region legend
     if region_colors:
         from matplotlib.patches import Patch
         legend_elements = [Patch(facecolor=color, label=region) 
-                           for region, color in region_colors.items()]
+                          for region, color in region_colors.items()]
         
-        # Create a new axis for the legend at the bottom
-        ax_legend = fig.add_axes([0.1, 0.01, 0.8, 0.03])  # [left, bottom, width, height]
-        ax_legend.axis('off')
-        ax_legend.legend(
-            handles=legend_elements, 
-            loc='center',
-            title="Most Visited Regions",
+        ax.legend(
+            handles=legend_elements,
+            loc='upper center',
+            bbox_to_anchor=(0.5, -0.15),
             ncol=min(5, len(region_colors)),
-            mode="expand",
-            borderaxespad=0.1,
-            frameon=True,
-            fontsize=10
+            title="Most Visited Regions"
         )
     
-    plt.tight_layout(rect=[0, 0.05, 1, 0.98])  # Adjust layout to make room for bottom legend
+    plt.tight_layout(rect=[0, 0, 1, 0.9])
     
     if output_dir:
-        save_figure(fig, output_dir / f"shift_{shift}_employee_comparison_{time_slot_minutes}min.png")
+        # Save plot
+        if employee_id:
+            save_path = output_dir / f"employee_{employee_id}_region_bars.png"
+        else:
+            save_path = output_dir / "all_employees_region_bars.png"
+        save_figure(fig, save_path)
+        
+        # Save data
+        if bar_data:
+            bar_df = pd.DataFrame(bar_data)
+            if employee_id:
+                data_path = output_dir / f"employee_{employee_id}_region_bars_data.csv"
+            else:
+                data_path = output_dir / "all_employees_region_bars_data.csv"
+            bar_df.to_csv(data_path, index=False)
     
     plt.close()
     return fig
 
-def analyze_walking_by_shift(data, output_dir=None, time_slot_minutes=30, language='en'):
+def analyze_walking_by_shift(data, output_dir=None, time_slot_minutes=30, language='en', 
+                          show_region_labels=False, custom_region_colors=None):
     """
     Analyze walking patterns by shift for each employee with improved visualizations
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Input dataframe
+    output_dir : Path
+        Output directory
+    time_slot_minutes : int
+        Size of time slots in minutes
+    language : str
+        Language code ('en' or 'de')
+    show_region_labels : bool
+        Whether to show region names in peak annotations
+    custom_region_colors : dict
+        Custom color mapping for regions
     """
     # Filter walking data
     walking_data = data[data['activity'] == 'Walk'].copy()
@@ -676,25 +691,14 @@ def analyze_walking_by_shift(data, output_dir=None, time_slot_minutes=30, langua
     if output_dir:
         shift_dir = output_dir / 'shifts'
         shift_dir.mkdir(exist_ok=True, parents=True)
-    
-    # Extract hour of day from startTime 
-    walking_data['hour_of_day'] = walking_data['startTime'] / 3600  # Convert to hours
-    
-    # Calculate number of slots in a day
-    slots_per_day = 24 * 60 // time_slot_minutes
-    
-    # Create time slot index for each record
-    walking_data['time_slot_idx'] = (walking_data['hour_of_day'] * 60 / time_slot_minutes).astype(int) % slots_per_day
-    
-    # Create time slot labels
-    time_slot_labels = []
-    for i in range(slots_per_day):
-        minutes_from_midnight = i * time_slot_minutes
-        hours = minutes_from_midnight // 60
-        minutes = minutes_from_midnight % 60
-        time_slot_labels.append(f"{hours:02d}:{minutes:02d}")
-    
-    walking_data['time_slot'] = walking_data['time_slot_idx'].apply(lambda x: time_slot_labels[x])
+        
+        # Add separate directory for bar plots
+        bar_dir = output_dir / 'region_bars'
+        bar_dir.mkdir(exist_ok=True, parents=True)
+        
+        # Add directory for data files
+        data_dir = output_dir / 'data'
+        data_dir.mkdir(exist_ok=True, parents=True)
     
     # Process each employee
     results = {}
@@ -704,43 +708,50 @@ def analyze_walking_by_shift(data, output_dir=None, time_slot_minutes=30, langua
         emp_data = walking_data[walking_data['id'] == emp_id]
         shifts = emp_data['shift'].unique()
         
-        # Skip employees with only one shift unless specified
-        if len(shifts) > 1 or True:  # Always process (previously was a condition)
-            # Create visualization comparing shifts
-            create_shift_comparison_plot(
-                emp_data, 
-                emp_id, 
-                shifts, 
-                slots_per_day,
-                time_slot_labels,
-                shift_dir,
-                time_slot_minutes,
-                language
-            )
-            
-            # Store results
-            results[emp_id] = {
-                'shifts': shifts.tolist(),
-                'shift_counts': emp_data.groupby('shift').size().to_dict()
-            }
-            
-            employees_processed.append(emp_id)
+        # Always process each employee
+        # Create visualization comparing shifts
+        create_shift_comparison_plot(
+            emp_data, 
+            emp_id, 
+            shifts, 
+            time_slot_minutes,
+            shift_dir,
+            language,
+            show_region_labels,
+            custom_region_colors
+        )
+        
+        # Create standalone bar plot for regions
+        create_region_activity_bar_plot(
+            emp_data,
+            emp_id,
+            time_slot_minutes,
+            bar_dir,
+            language,
+            custom_region_colors
+        )
+        
+        # Store results
+        results[emp_id] = {
+            'shifts': shifts.tolist(),
+            'shift_counts': emp_data.groupby('shift').size().to_dict()
+        }
+        
+        employees_processed.append(emp_id)
     
-    print(f"Created shift comparison visualizations for {len(employees_processed)} employees: {', '.join(employees_processed)}")
+    print(f"Created walking pattern visualizations for {len(employees_processed)} employees: {', '.join(employees_processed)}")
+    print(f"Saved density plots to {shift_dir}/")
+    print(f"Saved region bar plots to {bar_dir}/")
+    print(f"Saved data files to {data_dir}/")
     
-    # Create all-employee shift comparisons
-    for shift in walking_data['shift'].unique():
-        shift_data = walking_data[walking_data['shift'] == shift]
-        if len(shift_data['id'].unique()) > 1:
-            create_shift_employee_comparison(
-                shift_data,
-                shift,
-                slots_per_day,
-                time_slot_labels,
-                shift_dir,
-                time_slot_minutes,
-                language
-            )
+    # Create combined bar plot for all employees
+    create_region_activity_bar_plot(
+        walking_data,
+        None,  # None means all employees
+        time_slot_minutes,
+        bar_dir,
+        language,
+        custom_region_colors
+    )
     
     return results
-    
