@@ -1,96 +1,137 @@
-import pandas as pd
 import os
-import glob
+import pandas as pd
+import numpy as np
+from collections import defaultdict
 
 # Define paths
 DATA_PATH = 'data/raw/processed_sensor_data.csv'
-CONSOLIDATED_OUTPUT_FILE = 'consolidated_region_stats.csv'
+OUTPUT_DIR = 'output'
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# Define constants
+INTERVAL_SECONDS = 1800  # 30 minutes in seconds
+SECONDS_PER_DAY = 86400
+ACTIVITY_TYPES = ['Walk', 'Stand', 'Handle center', 'Handle up', 'Handle down']
+TOP_N_REGIONS = 1  # Keep top 3 regions per time category
+
+# Function to create time category string from seconds
+def seconds_to_time_category(seconds):
+    seconds = int(seconds)
+    hours = (seconds // 3600) % 24
+    minutes = (seconds % 3600) // 60
+    return f"{hours:02d}:{minutes:02d}"
+
+# Function to format seconds as mm:ss
+def format_duration(seconds):
+    minutes = int(seconds // 60)
+    remaining_seconds = int(seconds % 60)
+    return f"{minutes:02d}:{remaining_seconds:02d}"
 
 # Load data
 print(f"Loading data from {DATA_PATH}...")
 data = pd.read_csv(DATA_PATH)
+print(f"Loaded {len(data)} rows")
 
-# Convert startTime to hours and minutes for filtering
-data['hour'] = (data['startTime'] / 3600) % 24
-data['hour'] = data['hour'].astype(int)
-data['minute'] = (data['startTime'] % 3600) // 60
-data['time_slot'] = data['hour'] * 60 + data['minute']
+# Process each activity type
+for activity in ACTIVITY_TYPES:
+    print(f"Processing activity: {activity}")
+    
+    # Filter data for current activity
+    activity_data = data[data['activity'] == activity].copy()
+    
+    if activity_data.empty:
+        print(f"No data found for activity: {activity}")
+        continue
+    
+    # Create a dictionary to store the accumulated durations
+    # Key: (employee_id, time_category, region), Value: total_duration
+    accumulated_durations = defaultdict(float)
+    
+    # Process the data in a vectorized way
+    for _, row in activity_data.iterrows():
+        # Get normalized times
+        start_time = row['startTime'] % SECONDS_PER_DAY
+        end_time = row['endTime'] % SECONDS_PER_DAY
+        
+        # Handle overnight activities
+        if end_time < start_time:
+            end_time += SECONDS_PER_DAY
+        
+        # Calculate the intervals this activity spans
+        start_interval = (start_time // INTERVAL_SECONDS) * INTERVAL_SECONDS
+        end_interval = (end_time // INTERVAL_SECONDS) * INTERVAL_SECONDS
+        
+        # Calculate all interval thresholds this activity crosses
+        interval_thresholds = np.arange(
+            start_interval + INTERVAL_SECONDS, 
+            end_interval + INTERVAL_SECONDS, 
+            INTERVAL_SECONDS
+        )
+        
+        # Initialize current point
+        current = start_time
+        
+        # Add segment for first interval
+        if len(interval_thresholds) == 0:
+            # Activity doesn't cross interval boundaries
+            accumulated_durations[(row['id'], seconds_to_time_category(start_interval), row['region'])] += row['duration']
+        else:
+            # Process first interval
+            first_threshold = interval_thresholds[0]
+            first_duration = first_threshold - current
+            accumulated_durations[(row['id'], seconds_to_time_category(start_interval), row['region'])] += first_duration
+            current = first_threshold
+            
+            # Process middle intervals
+            for i in range(len(interval_thresholds) - 1):
+                interval_start = interval_thresholds[i]
+                interval_end = interval_thresholds[i + 1]
+                segment_duration = interval_end - interval_start
+                interval_category = seconds_to_time_category(interval_start)
+                accumulated_durations[(row['id'], interval_category, row['region'])] += segment_duration
+            
+            # Process last interval if activity doesn't end exactly on a threshold
+            if current < end_time:
+                last_interval = (current // INTERVAL_SECONDS) * INTERVAL_SECONDS
+                last_duration = end_time - current
+                accumulated_durations[(row['id'], seconds_to_time_category(last_interval), row['region'])] += last_duration
+    
+    # Convert accumulated durations to DataFrame
+    result_data = []
+    for (emp_id, time_category, region), total_duration in accumulated_durations.items():
+        result_data.append({
+            'id': emp_id,
+            'time_category': time_category,
+            'region': region,
+            'duration': total_duration,
+            'total_minutes': round(total_duration / 60, 2),
+            'formatted_duration': format_duration(total_duration)
+        })
+    
+    if not result_data:
+        print(f"No results for {activity}")
+        continue
+        
+    # Create DataFrame
+    result_df = pd.DataFrame(result_data)
+    
+    # For each employee and time category, keep the top N regions
+    top_regions = result_df.sort_values(['id', 'time_category', 'total_minutes'], ascending=[True, True, False])
+    top_regions = top_regions.groupby(['id', 'time_category']).head(TOP_N_REGIONS).reset_index(drop=True)
+    
+    # Format the final DataFrame
+    top_regions = top_regions[['id', 'region', 'time_category', 'formatted_duration', 'total_minutes']]
+    top_regions = top_regions.rename(columns={'formatted_duration': 'duration'})
+    
+    # Save to CSV
+    output_file = f"{OUTPUT_DIR}/{activity.lower().replace(' ', '_')}_region_stats.csv"
+    top_regions.to_csv(output_file, index=False)
+    print(f"Saved {activity} data to {output_file} with {len(top_regions)} rows")
+    
+    # Print row counts per employee
+    employee_counts = top_regions.groupby('id').size()
+    print("Rows per employee:")
+    for emp_id, count in employee_counts.items():
+        print(f"  Employee {emp_id}: {count} rows")
 
-# Define 30-minute intervals
-intervals = [(hour, minute) for hour in range(24) for minute in range(0, 60, 30)]
-
-# Define activity types to process
-activity_types = ['Walk', 'Stand', 'Handle center', 'Handle up', 'Handle down']
-
-for activity in activity_types:
-    print(f"Processing activity: {activity}...")
-
-    # Initialize an empty DataFrame for consolidated data
-    consolidated_data = pd.DataFrame()
-
-    for hour, minute in intervals:
-        # Calculate start and end of the interval in minutes
-        start_time_slot = hour * 60 + minute
-        end_time_slot = start_time_slot + 30
-
-        # Filter data for the current interval and activity type
-        target_data = data[(data['time_slot'] >= start_time_slot) & (data['time_slot'] < end_time_slot) & (data['activity'] == activity)]
-
-        if target_data.empty:
-            continue
-
-        # Group by employee and region, calculate total duration
-        region_stats = target_data.groupby(['id', 'region']).agg({
-            'duration': ['sum', 'count'],
-            'date': 'nunique',
-        }).reset_index()
-
-        # Flatten column names
-        region_stats.columns = ['id', 'region', 'total_minutes', 'count', 'unique_dates']
-        region_stats['total_minutes'] = region_stats['total_minutes'] / 60  # Convert to minutes
-
-        # Add time category
-        region_stats['time_category'] = f"{hour:02d}:{minute:02d}"
-
-        # Append to the consolidated DataFrame
-        consolidated_data = pd.concat([consolidated_data, region_stats], ignore_index=True)
-
-    # Keep only the top region for each employee and time interval
-    consolidated_data = consolidated_data.sort_values(['id', 'time_category', 'total_minutes'], ascending=[True, True, False])
-    consolidated_data = consolidated_data.groupby(['id', 'time_category']).head(1).reset_index(drop=True)
-
-    # Add a new column for 'duration' in [mm:ss] format
-    consolidated_data['duration'] = consolidated_data['total_minutes'].apply(lambda x: f"{int(x):02d}:{int((x - int(x)) * 60):02d}")
-
-    # Convert 'total_minutes' to float and round to 2 decimal places
-    consolidated_data['total_minutes'] = consolidated_data['total_minutes'].round(2)
-
-    # Save the consolidated data to a separate CSV file for each activity type
-    output_file = f"output/{activity.lower().replace(' ', '_')}_region_stats.csv"
-    consolidated_data[['id', 'region', 'time_category', 'duration', 'total_minutes']].to_csv(output_file, index=False)
-    print(f"Consolidated data for activity '{activity}' saved to {output_file}")
-
-# Group data by employee and region to calculate total walking time
-employee_region_stats = data[data['activity'] == 'Walk'].groupby(['id', 'region']).agg({
-    'duration': 'sum'
-}).reset_index()
-
-# Convert total duration to hours, minutes, and seconds
-employee_region_stats['duration_hhmmss'] = employee_region_stats['duration'].apply(
-    lambda x: f"{int(x // 3600):02d}:{int((x % 3600) // 60):02d}:{int(x % 60):02d}"
-)
-
-# Sort by employee and total duration in descending order
-employee_region_stats = employee_region_stats.sort_values(['id', 'duration'], ascending=[True, False])
-
-# Keep only the top 3 regions for each employee
-top_regions = employee_region_stats.groupby('id').head(3)
-
-# Save each employee's top regions to a separate CSV file
-output_dir = 'output/top_regions_by_employee/'
-os.makedirs(output_dir, exist_ok=True)
-
-for employee_id, group in top_regions.groupby('id'):
-    output_file = os.path.join(output_dir, f"employee_{employee_id}_top_regions.csv")
-    group[['region', 'duration_hhmmss']].to_csv(output_file, index=False)
-    print(f"Top regions for employee {employee_id} saved to {output_file}")
+print("Processing complete!")

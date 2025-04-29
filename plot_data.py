@@ -8,15 +8,15 @@ REGION_COLORS = {
     'Fettbacken': '#6BAED6',            # Light blue
     'Konditorei_station': '#3182BD',    # Blue
     'konditorei_deco': '#08519C',       # Dark blue          # Green
-    '1_Brotstation': '#2EBF5A',         # Lighter green
-    '2_Brotstation': '#1A6537',         # Even darker green
-    '3_Brotstation': '#15502F',         # Much darker green
-    '4_Brotstation': '#103B27',         # Very dark green
+    '1_Brotstation': 'lawngreen',         # Lighter green
+    '2_Brotstation': 'forestgreen',         # Even darker green
+    '3_Brotstation': 'darkgreen',         # Much darker green
+    '4_Brotstation': 'mediumspringgreen',         # Very dark green
     'Mehlmaschine': '#4A8A50',          # Darker light green
     'brotkisten_regal': '#FFFF00',      # Yellow
-    '1_Konditorei_station': '#63A6D4',  # Lighter blue
-    '2_Konditorei_station': '#276BA0',  # Slightly darker blue
-    '3_Konditorei_station': '#1D5483',  # Even darker blue
+    '1_Konditorei_station': 'powderblue',  # Light blue
+    '2_Konditorei_station': 'deepskyblue',  # Medium blue
+    '3_Konditorei_station': 'steelblue',  # Darker blue
     'bereitstellen_prepared_goods': '#FFD700',  # Gold
     '1_corridor': '#FFC107',                   # Amber
     'leere_Kisten': '#FFB300',                 # Darker yellow
