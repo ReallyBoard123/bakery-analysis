@@ -1,8 +1,7 @@
 """
-Activity Visualization Module
+Activity Visualization Module (Updated with Custom Activity Colors)
 
-Functions for creating visualizations of employee activities.
-Including function from region_activity_analysis.py.
+Functions for creating visualizations of employee activities with activity-specific colors.
 """
 
 import matplotlib.pyplot as plt
@@ -11,12 +10,181 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import matplotlib.gridspec as gridspec
+from matplotlib.colors import LinearSegmentedColormap, to_rgb
+import matplotlib.colors as mcolors
 
 from ..utils.time_utils import format_seconds_to_hms, format_seconds_to_hours
 from .base import (save_figure, set_visualization_style, 
                   get_activity_colors, get_activity_order, 
                   get_employee_colors, get_bakery_cmap,
                   add_duration_percentage_label, get_text)
+
+def plot_activity_distribution_by_employee_custom(data, save_path=None, figsize=(12, 6), language='en'):
+    """
+    Plot activity distribution by employee as a clean heatmap with activity-specific color intensities
+    matching the desired style where each column uses shades of its activity color
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        Input dataframe with activities
+    save_path : str or Path, optional
+        Path to save the visualization
+    figsize : tuple, optional
+        Figure size (width, height) in inches
+    language : str, optional
+        Language code ('en' or 'de')
+    
+    Returns:
+    --------
+    matplotlib.figure.Figure
+        The created figure
+    """
+    set_visualization_style()
+    
+    # Get activity colors and order
+    activity_colors = get_activity_colors()
+    activity_order = get_activity_order()
+    
+    # Calculate total duration by employee
+    emp_totals = data.groupby('id')['duration'].sum().reset_index()
+    
+    # Calculate activity durations by employee
+    emp_activity = data.groupby(['id', 'activity'])['duration'].sum().reset_index()
+    
+    # Merge to get employee totals
+    emp_activity = pd.merge(emp_activity, emp_totals, on='id', suffixes=('', '_total'))
+    
+    # Calculate percentage and format time
+    emp_activity['percentage'] = (emp_activity['duration'] / emp_activity['duration_total'] * 100).round(1)
+    emp_activity['formatted_time'] = emp_activity['duration'].apply(format_seconds_to_hms)
+    
+    # Create pivot table for percentages
+    pivot_pct = pd.pivot_table(
+        emp_activity,
+        values='percentage',
+        index='id',
+        columns='activity',
+        fill_value=0
+    )
+    
+    # Create pivot table for formatted times
+    pivot_time = pd.pivot_table(
+        emp_activity,
+        values='formatted_time',
+        index='id',
+        columns='activity',
+        aggfunc=lambda x: x.iloc[0] if len(x) > 0 else '00:00:00',
+        fill_value='00:00:00'
+    )
+    
+    # Reorder columns based on standard activity order and filter out unwanted columns
+    ordered_cols = [col for col in activity_order if col in pivot_pct.columns]
+    
+    pivot_pct = pivot_pct[ordered_cols]
+    pivot_time = pivot_time[ordered_cols]
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    # Create a color matrix where each column uses intensity-based colors
+    color_matrix = np.zeros((len(pivot_pct), len(pivot_pct.columns), 4))  # RGBA
+    
+    for j, activity in enumerate(pivot_pct.columns):
+        base_color = activity_colors.get(activity, '#CCCCCC')
+        base_rgb = to_rgb(base_color)
+        
+        # Get the percentage values for this column to determine the range
+        column_values = pivot_pct.iloc[:, j].values
+        max_val = max(column_values) if max(column_values) > 0 else 1
+        
+        for i in range(len(pivot_pct)):
+            percentage = pivot_pct.iloc[i, j]
+            
+            # Calculate intensity based on percentage (0 to max in this column)
+            # Minimum intensity is 0.2 (so we get light colors), maximum is 1.0
+            if max_val > 0:
+                intensity = 0.2 + (percentage / max_val) * 0.8
+            else:
+                intensity = 0.2
+            
+            # Create color by blending white with the base color based on intensity
+            # Higher intensity = more of the base color, lower intensity = more white
+            final_color = [
+                (1 - intensity) + intensity * base_rgb[0],  # R
+                (1 - intensity) + intensity * base_rgb[1],  # G  
+                (1 - intensity) + intensity * base_rgb[2],  # B
+                1.0  # A
+            ]
+            
+            color_matrix[i, j] = final_color
+    
+    # Display the color matrix
+    im = ax.imshow(color_matrix, aspect='auto')
+    
+    # Add text annotations
+    for i in range(len(pivot_pct)):
+        for j in range(len(pivot_pct.columns)):
+            percentage = pivot_pct.iloc[i, j]
+            time_val = pivot_time.iloc[i, j]
+            text = f"{percentage:.1f}%\n{time_val}"
+            
+            # Choose text color based on activity type and background intensity
+            activity = pivot_pct.columns[j]
+            
+            if activity in ['Walk', 'Handle down']:
+                # For blue (Walk) and red (Handle down), use white/black based on intensity
+                column_values = pivot_pct.iloc[:, j].values
+                max_val = max(column_values) if max(column_values) > 0 else 1
+                intensity = 0.2 + (percentage / max_val) * 0.8 if max_val > 0 else 0.2
+                text_color = 'white' if intensity > 0.6 else 'black'
+            else:
+                # For all other activities (Stand, Handle center, Handle up), always use black
+                text_color = 'black'
+            
+            ax.text(j, i, text, ha='center', va='center', 
+                   fontsize=12, fontweight='normal', color=text_color)
+    
+    # Set up ticks and labels
+    ax.set_xticks(range(len(pivot_pct.columns)))
+    ax.set_yticks(range(len(pivot_pct.index)))
+    ax.set_xticklabels([get_text(col, language) for col in pivot_pct.columns], fontsize=12)
+    ax.set_yticklabels(pivot_pct.index, fontsize=12)
+    
+    # Add thin white border lines around cells only
+    for i in range(len(pivot_pct) + 1):
+        ax.axhline(i - 0.5, color='white', linewidth=1)
+    for j in range(len(pivot_pct.columns) + 1):
+        ax.axvline(j - 0.5, color='white', linewidth=1)
+    
+    # Remove any default grid
+    ax.grid(False)
+    
+    # Set title and labels
+    ax.set_title(get_text('Employee Activity Distribution Heatmap', language), 
+                fontsize=16, fontweight='bold', pad=20)
+    ax.set_ylabel(get_text('Employee ID', language), fontsize=14)
+    ax.set_xlabel(get_text('Activity', language), fontsize=14)
+    
+    # Clean up the plot
+    ax.set_xlim(-0.5, len(pivot_pct.columns) - 0.5)
+    ax.set_ylim(-0.5, len(pivot_pct.index) - 0.5)
+    
+    plt.tight_layout()
+    
+    if save_path:
+        save_figure(fig, save_path)
+    
+    return fig
+
+# Update the original function to use the new clean version
+def plot_activity_distribution_by_employee(data, save_path=None, figsize=(12, 6), language='en'):
+    """
+    Plot activity distribution by employee as a heatmap (Updated with clean custom colors)
+    
+    This is the main function called by analysis.py - now uses clean styling
+    """
+    return plot_activity_distribution_by_employee_custom(data, save_path, figsize, language)
 
 def plot_activity_distribution(data, save_path=None, figsize=(12, 7), language='en'):
     """
@@ -78,120 +246,6 @@ def plot_activity_distribution(data, save_path=None, figsize=(12, 7), language='
     ax.set_ylabel(get_text('Duration (hours)', language), fontsize=14)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     plt.xticks(fontsize=12, rotation=30, ha='right')
-    plt.yticks(fontsize=12)
-    
-    plt.tight_layout()
-    
-    if save_path:
-        save_figure(fig, save_path)
-    
-    return fig
-
-def plot_activity_distribution_by_employee(data, save_path=None, figsize=(14, 8), language='en'):
-    """
-    Plot activity distribution by employee as a heatmap
-    
-    Parameters:
-    -----------
-    data : pandas.DataFrame
-        Input dataframe with activities
-    save_path : str or Path, optional
-        Path to save the visualization
-    figsize : tuple, optional
-        Figure size (width, height) in inches
-    language : str, optional
-        Language code ('en' or 'de')
-    
-    Returns:
-    --------
-    matplotlib.figure.Figure
-        The created figure
-    """
-    set_visualization_style()
-    fig, ax = plt.subplots(figsize=figsize)
-    
-    # Get standardized activity order
-    activity_order = get_activity_order()
-    
-    # Calculate total duration by employee
-    emp_totals = data.groupby('id')['duration'].sum().reset_index()
-    
-    # Calculate activity durations by employee
-    emp_activity = data.groupby(['id', 'activity'])['duration'].sum().reset_index()
-    
-    # Merge to get employee totals
-    emp_activity = pd.merge(emp_activity, emp_totals, on='id', suffixes=('', '_total'))
-    
-    # Calculate percentage and format time
-    emp_activity['percentage'] = (emp_activity['duration'] / emp_activity['duration_total'] * 100).round(1)
-    emp_activity['formatted_time'] = emp_activity['duration'].apply(format_seconds_to_hms)
-    
-    # Create pivot table for percentages
-    pivot_pct = pd.pivot_table(
-        emp_activity,
-        values='percentage',
-        index='id',
-        columns='activity',
-        fill_value=0
-    )
-    
-    # Create pivot table for formatted times (as strings)
-    pivot_time = pd.pivot_table(
-        emp_activity,
-        values='formatted_time',
-        index='id',
-        columns='activity',
-        aggfunc=lambda x: x.iloc[0] if len(x) > 0 else '00:00:00',
-        fill_value='00:00:00'
-    )
-    
-    # Reorder columns based on standard activity order
-    ordered_cols = [col for col in activity_order if col in pivot_pct.columns]
-    other_cols = [col for col in pivot_pct.columns if col not in activity_order]
-    ordered_cols.extend(other_cols)
-    
-    pivot_pct = pivot_pct[ordered_cols]
-    pivot_time = pivot_time[ordered_cols]
-    
-    # Create a custom annotation function to show both percentage and time
-    def custom_format(val, time_val):
-        hours = time_val.split(':')[0]
-        mins_secs = ':'.join(time_val.split(':')[1:])
-        return f"{val:.1f}%\n{hours}:{mins_secs}"
-    
-    # Create annotation matrix
-    annotations = np.empty_like(pivot_pct.values, dtype=object)
-    for i in range(pivot_pct.shape[0]):
-        for j in range(pivot_pct.shape[1]):
-            annotations[i, j] = custom_format(
-                pivot_pct.values[i, j], 
-                pivot_time.values[i, j]
-            )
-    
-    # Translate column names for display
-    translated_columns = [get_text(col, language) for col in pivot_pct.columns]
-    
-    # Create heatmap with custom colormap and annotations
-    sns.heatmap(
-        pivot_pct, 
-        cmap=get_bakery_cmap(), 
-        annot=annotations,
-        fmt="",
-        linewidths=0.5,
-        ax=ax,
-        xticklabels=translated_columns,
-        cbar_kws={
-            'label': get_text('Percentage of Employee Time (%)', language),
-            'shrink': 0.8
-        }
-    )
-    
-    ax.set_title(get_text('Activity Distribution by Employee', language), fontsize=16, fontweight='bold', pad=20)
-    ax.set_ylabel(get_text('Employee ID', language), fontsize=14)
-    ax.set_xlabel(get_text('Activity', language), fontsize=14)
-    
-    # Rotate x axis labels for better readability
-    plt.xticks(rotation=30, ha='right', fontsize=12)
     plt.yticks(fontsize=12)
     
     plt.tight_layout()
@@ -296,7 +350,7 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
                                figsize=(16, 12), y_axis_scale='auto', language='en'):
     """
     Create a visualization showing top regions and activity breakdowns for employees in a department
-    with both percentage and duration labels
+    with both percentage and duration labels (Updated with custom activity colors)
     
     Parameters:
     -----------
@@ -390,7 +444,7 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
     max_hours_global *= 1.2
     
     # Create figure
-    fig, axes = plt.subplots(nrows=len(employees), ncols=top_n_regions, figsize=figsize, sharey=False)  # Explicitly disable sharey
+    fig, axes = plt.subplots(nrows=len(employees), ncols=top_n_regions, figsize=figsize, sharey=False)
     
     # Make sure axes is always a 2D array
     if len(employees) == 1 and top_n_regions == 1:
@@ -504,7 +558,7 @@ def analyze_activities_by_region(data, department=None, top_n_regions=5, save_pa
     # Adjust layout
     plt.tight_layout(rect=[0, 0, 1, 0.95])  # Make room for title
     
-    # Add one legend for the entire figure
+    # Add one legend for the entire figure using activity colors
     handles = [plt.Rectangle((0, 0), 1, 1, color=activity_colors[activity]) for activity in activity_order]
     labels = [get_text(activity, language) for activity in activity_order]
     fig.legend(handles, labels, loc='lower center', ncol=len(activity_order), 

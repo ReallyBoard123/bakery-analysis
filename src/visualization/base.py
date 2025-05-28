@@ -1,5 +1,5 @@
 """
-Base Visualization Module (Updated)
+Base Visualization Module (Updated with New Activity Colors)
 
 Provides base functionality and styling for all visualizations.
 """
@@ -15,11 +15,11 @@ ACTIVITY_ORDER = ['Walk', 'Stand', 'Handle center', 'Handle down', 'Handle up']
 
 # Updated standardized colors for activities per client requirements
 ACTIVITY_COLORS = {
-    'Walk': '#156082',       # Blue
-    'Stand': '#A6A6A6',      # Grey
-    'Handle center': '#F1A983',  # Light orange
-    'Handle down': '#C00000',  # Red
-    'Handle up': '#FFC000'   # Yellow
+    'Walk': '#156082',       # Blue (unchanged)
+    'Stand': '#A6A6A6',      # Grey (unchanged)
+    'Handle center': '#F1A983',  # Light orange (unchanged)
+    'Handle down': '#C1341A',  # Updated red
+    'Handle up': '#FEC134'   # Updated yellow
 }
 
 # Standardized colors for departments
@@ -40,7 +40,7 @@ EMPLOYEE_COLORS = {
 }
 
 # Legacy color palette for backward compatibility
-BAKERY_COLORS = ['#156082', '#A6A6A6', '#F1A983', '#C00000', '#FFC000', '#8C6464']
+BAKERY_COLORS = ['#156082', '#A6A6A6', '#F1A983', '#C1341A', '#FEC134', '#8C6464']
 
 def set_visualization_style():
     """
@@ -101,6 +101,32 @@ def get_department_colors():
 def get_employee_colors():
     """Get standardized color mapping for employees"""
     return EMPLOYEE_COLORS
+
+def create_activity_colormap(activity, reverse=False):
+    """
+    Create a custom colormap for a specific activity using its base color
+    
+    Parameters:
+    -----------
+    activity : str
+        Activity name (e.g., 'Walk', 'Handle up', etc.)
+    reverse : bool, optional
+        Whether to reverse the colormap (darker to lighter vs lighter to darker)
+    
+    Returns:
+    --------
+    matplotlib.colors.LinearSegmentedColormap
+        Custom colormap based on the activity's base color
+    """
+    base_color = ACTIVITY_COLORS.get(activity, '#CCCCCC')
+    
+    # Create a range from white to the base color for the colormap
+    if reverse:
+        colors = [base_color, '#FFFFFF']
+    else:
+        colors = ['#FFFFFF', base_color]
+    
+    return LinearSegmentedColormap.from_list(f'{activity}_cmap', colors)
 
 def get_bakery_cmap():
     """
