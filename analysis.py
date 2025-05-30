@@ -9,6 +9,7 @@ This script creates an employee activity heatmap and exports the data to CSV.
 import pandas as pd
 import matplotlib.pyplot as plt
 import sys
+import subprocess
 from pathlib import Path
 
 # Import your existing utility functions
@@ -107,6 +108,50 @@ def create_activity_csv_data(data):
     
     return pivot_combined
 
+def run_step2_analysis():
+    """Run the Step 2 analysis which generates regional activity pattern graphs"""
+    print_step_header(2, "REGIONAL ACTIVITY PATTERN GRAPHS")
+    
+    print("🚀 Starting Step 2 Analysis...")
+    print("This will generate 35 graphs (7 employees × 5 activities)")
+    print("Each graph shows regional activity patterns over 30-minute intervals")
+    print()
+    
+    try:
+        # Check if the analysis script exists
+        script_path = Path("employee_activity_analysis.py")
+        if not script_path.exists():
+            print("❌ Error: employee_activity_analysis.py not found!")
+            print("Please make sure the script is in the current directory.")
+            return 1
+        
+        # Run the analysis with high-quality settings
+        print("🔄 Running employee_activity_analysis.py with high-quality settings...")
+        result = subprocess.run([
+            sys.executable, 
+            str(script_path),
+            "--dpi", "600",
+            "--width", "14",
+            "--height", "10",
+            "--font-size", "12"
+        ], capture_output=False, text=True)
+        
+        if result.returncode == 0:
+            print("\n✅ Step 2 Analysis completed successfully!")
+            print("📁 Check the 'step2_analysis_output' directory for results.")
+        else:
+            print(f"\n❌ Analysis failed with return code: {result.returncode}")
+            return result.returncode
+            
+    except KeyboardInterrupt:
+        print("\n⚠️  Analysis interrupted by user")
+        return 1
+    except Exception as e:
+        print(f"\n❌ Unexpected error: {e}")
+        return 1
+    
+    return 0
+
 def main():
     """Main analysis function"""
     print("🏭 BAKERY EMPLOYEE ACTIVITY ANALYSIS")
@@ -136,13 +181,19 @@ def main():
         print("\n📋 CSV Data Preview:")
         print(csv_data.to_string(index=False))
         
+        # Step 2: Run Regional Activity Pattern Analysis
+        step2_result = run_step2_analysis()
+        if step2_result != 0:
+            print("\n⚠️ Step 2 Analysis encountered issues, but continuing...")
+        
         # Summary
         print(f"\n{'='*60}")
         print("✅ ANALYSIS COMPLETE!")
         print(f"{'='*60}")
-        print(f"📊 Created employee activity heatmap")
-        print(f"📁 Exported data to CSV format")
-        print(f"💾 All files saved to: {OUTPUT_DIR}")
+        print(f"📊 Step 1: Created employee activity heatmap and exported data to CSV")
+        print(f"📊 Step 2: Generated regional activity pattern graphs")
+        print(f"💾 Step 1 files saved to: {OUTPUT_DIR}")
+        print(f"💾 Step 2 files saved to: step2_analysis_output")
         
         # Show the plot
         plt.show()
