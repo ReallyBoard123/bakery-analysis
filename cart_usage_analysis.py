@@ -151,8 +151,13 @@ def create_enhanced_donut_charts(idle_data, usage_data, output_dir):
     
     print("Creating enhanced donut charts...")
     
-    # Increase figure size for better quality
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 12))
+    # Create high-resolution figure with larger size and higher DPI
+    plt.rcParams['figure.dpi'] = 600
+    plt.rcParams['savefig.dpi'] = 600
+    plt.rcParams['font.size'] = 16  # Increase base font size
+    
+    # Create figure with increased size and resolution
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(32, 16))  # Increased figure size
     
     # Idle donut
     if idle_data is not None and not idle_data.empty:
@@ -228,9 +233,15 @@ def create_enhanced_donut_charts(idle_data, usage_data, output_dir):
                     fontsize=13, fontweight='bold',
                     bbox=dict(boxstyle="round,pad=0.4", facecolor='white', alpha=0.9))
     
-    plt.tight_layout()
-    plt.savefig(output_dir / 'donut_charts_with_details.png', dpi=600, bbox_inches='tight', 
-                facecolor='white', edgecolor='none')
+    # Adjust layout and save with high quality settings
+    plt.tight_layout(pad=4.0)  # Add more padding around the plots
+    plt.savefig(output_dir / 'donut_charts_with_details.png', 
+               dpi=900,  # Increased DPI for higher resolution
+               bbox_inches='tight', 
+               facecolor='white', 
+               edgecolor='none',
+               quality=95,  # Maximum quality for PNG
+               optimize=True)
     plt.close()
     print(f"✅ High-quality donut charts saved to: {output_dir / 'donut_charts_with_details.png'}")
 
