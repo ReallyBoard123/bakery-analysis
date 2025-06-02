@@ -18,55 +18,16 @@ from collections import defaultdict
 import subprocess
 import sys
 
+# Import region colors from base
+from src.visualization.base import get_region_color, get_region_colors
+
 # Set style
 plt.style.use('seaborn-v0_8-whitegrid')
 plt.rcParams['figure.figsize'] = (16, 8)
 plt.rcParams['font.size'] = 10
 
-# Define region colors with shades
-REGION_COLORS = {
-    # Fettbacken
-    '1_Fettbacken': '#83CBEB',
-    
-    # Konditorei stations (3 shades of blue)
-    '2a_Konditorei_station': '#66C5E8',  # Lighter shade
-    '2b_Konditorei_station': '#46B1E1',  # Base color
-    '2c_Konditorei_station': '#2E9FD8',  # Darker shade
-    
-    # Konditorei deco
-    '3_Konditorei_deco_raum': '#215F9A',
-    
-    # Brot stations (4 shades of green)
-    '4a_Brotstation': '#6BC154',  # Lighter
-    '4b_Brotstation': '#54B151',  # Base
-    '4c_Brotstation': '#4DA149',  # Darker
-    '4d_Brotstation': '#459141',  # Darkest
-    
-    # Ovens (shades of light green)
-    '5a_Stickenofen': '#A2D85A',  # Lighter
-    '5b_Stickenofen': '#92D050',  # Base
-    '5c_Etagenofen': '#82C846',   # Darker
-    '5d_Etagenofen': '#72C03C',   # Darkest
-    
-    # Mehl machines (3 shades of very light green)
-    '6a_Mehl_Brötchen_Maschine': '#E9F8E0',  # Lightest
-    '6b_Mehl_Brötchen_Maschine': '#D9F2D0',  # Base
-    '6c_Mehl_Brötchen_Maschine': '#C9ECC0',  # Darker
-    
-    # Brotwagon (6 shades of yellow)
-    '7a_Brotwagon_und_kisten': '#FCEF4C',  # Lightest
-    '7b_Brotwagon_und_kisten': '#FBEF3C',  # Base
-    '7c_Brotwagon_und_kisten': '#FAEF2C',  # Slightly darker
-    '7d_Brotwagon_und_kisten': '#F9EF1C',  # Darker
-    '7e_Brotwagon_und_kisten': '#F8EF0C',  # Much darker
-    '7f_Brotwagon_und_kisten': '#F7EE00',  # Darkest
-    
-    # Korridor
-    '8_Korridor': '#FEC134',
-    
-    # Kekse Verpackung
-    '9_Kekse_Verpackung': '#BFBFBF',
-}
+# Get region colors from centralized location
+REGION_COLORS = get_region_colors()
 
 # Activity types
 ACTIVITY_TYPES = ['Walk', 'Stand', 'Handle center', 'Handle up', 'Handle down']
@@ -135,95 +96,10 @@ def run_data_extraction():
     return True
 
 def get_region_color(region_name):
-    """Get color for a region, with fallback to default mapping"""
-    # Direct mapping first
-    if region_name in REGION_COLORS:
-        return REGION_COLORS[region_name]
-    
-    # Fallback mapping for regions that might not match exactly
-    # This handles both old and new region names after renaming
-    fallback_mapping = {
-        # New renamed regions (after quick_changes.py)
-        '1_Fettbacken': '#83CBEB',
-        '2a_Konditorei_station': '#66C5E8',
-        '2b_Konditorei_station': '#46B1E1', 
-        '2c_Konditorei_station': '#2E9FD8',
-        '3_Konditorei_deco_raum': '#215F9A',
-        '4a_Brotstation': '#6BC154',
-        '4b_Brotstation': '#54B151',
-        '4c_Brotstation': '#4DA149',
-        '4d_Brotstation': '#459141',
-        '5a_Stickenofen': '#A2D85A',
-        '5b_Stickenofen': '#92D050',
-        '5c_Etagenofen': '#82C846',
-        '5d_Etagenofen': '#72C03C',
-        '6a_Mehl_Brötchen_Maschine': '#E9F8E0',
-        '6b_Mehl_Brötchen_Maschine': '#D9F2D0',
-        '6c_Mehl_Brötchen_Maschine': '#C9ECC0',
-        '7a_Brotwagon_und_kisten': '#FCEF4C',
-        '7b_Brotwagon_und_kisten': '#FBEF3C',
-        '7c_Brotwagon_und_kisten': '#FAEF2C',
-        '7d_Brotwagon_und_kisten': '#F9EF1C',
-        '7e_Brotwagon_und_kisten': '#F8EF0C',
-        '7f_Brotwagon_und_kisten': '#F7EE00',
-        '8_Korridor': '#FEC134',
-        '9_Kekse_Verpackung': '#BFBFBF',
-        
-        # Original names (before renaming) and other regions
-        'Fettbacken': '#83CBEB',
-        '1_Konditorei_station': '#66C5E8',
-        '2_Konditorei_station': '#46B1E1', 
-        '3_Konditorei_station': '#2E9FD8',
-        'konditorei_deco': '#215F9A',
-        '1_Brotstation': '#6BC154',
-        '2_Brotstation': '#54B151',
-        '3_Brotstation': '#4DA149',
-        '4_Brotstation': '#459141',
-        'klein_kühlschrank_und_wasser': '#459141',
-        '1_Stickenofen': '#A2D85A',
-        '2_Stickenofen': '#92D050',
-        'Etagenofen': '#82C846',
-        'Gärraum': '#72C03C',
-        'Sauerteigraum': '#72C03C',  # Similar to Gärraum
-        'Mehlmaschine': '#E9F8E0',
-        'Rollenhandtuchspend': '#D9F2D0',
-        'brotkisten_regal': '#FCEF4C',
-        'production_plan': '#FCEF4C',
-        'leere_Brotwagen': '#FBEF3C',
-        'leere_Kisten': '#FAEF2C',
-        'Brotwagon_regal_haltebereich': '#F9EF1C',
-        'bereitstellen_prepared_goods': '#F8EF0C',
-        'loading_area': '#F7EE00',
-        '1_corridor': '#FEC134',
-        '1_flur_aufzug': '#FEC134',
-        '2_flur_aufzug': '#FEC134',
-        'flur_staircase_up': '#FEC134',
-        'cookies_packing_hand': '#BFBFBF',
-        
-        # Additional regions found in data
-        'SENSORDECK_TechnikRaum': '#CCCCCC',
-        'eingang_area': '#CCCCCC',
-        'flur_eingang_umkleidung_WC': '#CCCCCC',
-        'outdoor_eingang': '#CCCCCC',
-        'Abwaschen_area': '#A0D2E8',
-        'Abwaschen_extra': '#A0D2E8',
-        'K\u00fcche': '#A0D2E8',
-        'Lager': '#8B7355',
-        'Lager_eingang': '#8B7355',
-        'Silo': '#8B7355',
-        'Kompressoren_Heizung': '#CCCCCC',
-        'Garragengeb\u00e4ude': '#CCCCCC',
-        'outdoor_loading_area': '#CCCCCC',
-        'outdoor_silo': '#CCCCCC',
-        'outdoor_lager_m\u00fchlengeb\u00e4ude': '#CCCCCC',
-        'outdoor_garrage': '#CCCCCC',
-    }
-    
-    if region_name in fallback_mapping:
-        return fallback_mapping[region_name]
-    
-    # Default color for unmapped regions
-    return '#CCCCCC'
+    """Get color for a region using the centralized color mapping"""
+    from src.visualization.base import get_region_color as base_get_region_color
+    # Use the imported function from base.py which handles all fallback logic
+    return base_get_region_color(region_name)
 
 def format_duration_mmss(total_minutes):
     """Convert minutes to mm:ss format"""
@@ -380,14 +256,15 @@ def create_employee_activity_graph(data, employee_id, activity_type, output_dir,
     # Set y-axis to start from 0
     ax.set_ylim(bottom=0)
     
-    # Simple layout setup
-    plt.tight_layout()
+    # Adjust the layout to make room for the statement
+    plt.tight_layout(rect=[0.03, 0.15, 0.97, 0.95])  # left, bottom, right, top
     
-    # Position the main plot area
-    ax.set_position([0.1, 0.2, 0.8 if show_legend else 0.9, 0.68])  # left, bottom, width, height
+    # Position the main plot area with more space at the bottom
+    # left, bottom, width, height
+    ax.set_position([0.1, 0.35, 0.85 if show_legend else 0.9, 0.6])  
     
-    # Add some padding below x-axis for the statement
-    ax.xaxis.set_label_coords(0.5, -0.25)  # Position x-label lower
+    # Position the x-axis label lower to make room for the statement
+    ax.xaxis.set_label_coords(0.5, -0.35)
     
     # --- Generate dynamic analytical sentence --- 
     sentence_part1 = ""
@@ -448,24 +325,22 @@ def create_employee_activity_graph(data, employee_id, activity_type, output_dir,
         # sentence_part2 remains default
 
     # Add x-axis label with custom positioning
-    ax.set_xlabel("Time of Day (30-minute intervals)", fontsize=12, labelpad=1)  # Reduced labelpad
+    ax.set_xlabel("Time of Day (30-minute intervals)", fontsize=12, labelpad=15)  # Increased labelpad
     
     # Add statement if enabled
     if show_statement:
         dynamic_sentence = f"{sentence_part1} {sentence_part2}"
-        # Simple statement position (0.05 from left, 0.1 from bottom)
-        # Increase the y-value to move the statement down, decrease to move it up
-        statement_y = 0.10
-        
-        fig.text(0.05, statement_y,
+        # Position the statement below the x-axis label
+        # Using figure coordinates (0-1), with 0.05 from left and 0.05 from bottom
+        fig.text(0.05, 0.02,  # x, y in figure coordinates (0-1)
                 dynamic_sentence, 
                 ha='left',
                 va='top',
                 fontsize=font_size, 
                 style='italic',
                 wrap=True,
-                bbox=dict(boxstyle='round,pad=0.5', fc='wheat', alpha=0.3),
-                transform=fig.transFigure)
+                transform=fig.transFigure,
+                bbox=dict(boxstyle='round,pad=0.5', fc='wheat', alpha=0.3, linewidth=0.5))
 
     # Save the plot with high quality settings and proper bounding box
     plot_filename = f"{employee_id}_{activity_type.replace(' ', '_').lower()}_regions.png"
@@ -546,9 +421,10 @@ def main():
     print(f"📐 Quality settings: DPI={args.dpi}, Figure size={args.width}x{args.height}",
           f"Line width={args.line_width}, Font size={args.font_size}")
     
-    # Create output directory
-    output_dir = Path('step2_analysis_output')
-    output_dir.mkdir(exist_ok=True)
+    # Get output directory from environment variable or use default
+    output_dir = Path(os.environ.get('STEP2_OUTPUT_DIR', 'step2_analysis_output'))
+    output_dir.mkdir(exist_ok=True, parents=True)
+    print(f"📂 Saving output to: {output_dir.absolute()}")
     
     # Step 1: Run data extraction scripts
     if not run_data_extraction():

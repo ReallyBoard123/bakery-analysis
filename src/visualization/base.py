@@ -39,6 +39,33 @@ EMPLOYEE_COLORS = {
     '32-H': '#e377c2'   # Pink
 }
 
+# Standardized colors for regions
+REGION_COLORS = {
+    '1_Fettbacken': '#83CBEB',
+    '2a_Konditorei_station': '#66C5E8',
+    '2b_Konditorei_station': '#46B1E1', 
+    '2c_Konditorei_station': '#2E9FD8',
+    '3_Konditorei_deco_raum': '#215F9A',
+    '4a_Brotstation': '#6BC154',
+    '4b_Brotstation': '#54B151',
+    '4c_Brotstation': '#4DA149',
+    '4d_Brotstation': '#459141',
+    '5a_Stickenofen': '#A2D85A',
+    '5b_Stickenofen': '#92D050',
+    '5c_Etagenofen': '#82C846',
+    '5d_Etagenofen': '#72C03C',
+    '6a_Mehl_Brötchen_Maschine': '#E9F8E0',
+    '6b_Mehl_Brötchen_Maschine': '#D9F2D0',
+    '6c_Mehl_Brötchen_Maschine': '#C9ECC0',
+    '7a_Brotwagon_und_kisten': '#FCEF4C',
+    '7b_Brotwagon_und_kisten': '#FBEF3C',
+    '7c_Brotwagon_und_kisten': '#FAEF2C',
+    '7d_Brotwagon_und_kisten': '#F9EF1C',
+    '7e_Brotwagon_und_kisten': '#F8EF0C',
+    '7f_Brotwagon_und_kisten': '#F7EE00',
+    '8_Korridor': '#FEC134',
+}
+
 # Legacy color palette for backward compatibility
 BAKERY_COLORS = ['#156082', '#A6A6A6', '#F1A983', '#C1341A', '#FEC134', '#8C6464']
 
@@ -101,6 +128,35 @@ def get_department_colors():
 def get_employee_colors():
     """Get standardized color mapping for employees"""
     return EMPLOYEE_COLORS
+
+
+def get_region_colors():
+    """Get standardized color mapping for regions
+    
+    Returns:
+    --------
+    dict
+        Dictionary mapping region names to their standardized colors
+    """
+    return REGION_COLORS
+
+
+def get_region_color(region_name, default='#BFBFBF'):
+    """Get color for a specific region
+    
+    Parameters:
+    -----------
+    region_name : str
+        Name of the region
+    default : str, optional
+        Default color to return if region not found
+        
+    Returns:
+    --------
+    str
+        Hex color code for the region
+    """
+    return REGION_COLORS.get(region_name, default)
 
 def create_activity_colormap(activity, reverse=False):
     """
