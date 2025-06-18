@@ -253,8 +253,10 @@ def create_employee_activity_graph(data, employee_id, activity_type, output_dir,
     ax.grid(False)
     ax.set_axisbelow(True)
     
-    # Set y-axis to start from 0
-    ax.set_ylim(bottom=0)
+    # Set consistent y-axis limits from 0 to 25 minutes with 2.5-minute intervals
+    ax.set_ylim(bottom=0, top=25)
+    ax.yaxis.set_major_locator(plt.MultipleLocator(2.5))  # Set major ticks every 2.5 minutes
+    ax.yaxis.set_minor_locator(plt.MultipleLocator(0.5))   # Set minor ticks every 30 seconds for better readability
     
     # Adjust the layout to make room for the statement
     plt.tight_layout(rect=[0.03, 0.15, 0.97, 0.95])  # left, bottom, right, top
